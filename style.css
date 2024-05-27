@@ -1,0 +1,157 @@
+*{
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body{
+    font-family: Copperplate Gothic;
+}
+    
+.nav{
+    background-color: rgb(21, 23, 18);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 65px;
+    border-bottom: 1.2px solid #a19f9f;
+}
+
+
+.nav h1{
+    margin-left: 10px;
+    color:white;
+    font-family: Copperplate Gothic;
+    font-weight: 1000;
+}
+
+span{
+    font-size: 20px;
+    margin-left: 1px;
+}
+
+.logo2 img{
+    height: 60px;
+    width: 80px;
+    margin-right: 230px;
+}
+
+.page1{
+    border-bottom: solid 50px black;
+
+}
+
+a{
+    margin-right: 30px;
+    padding: 4px 24px;
+    border: none;
+    background-color: rgb(32, 36, 28);
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    text-decoration: none;
+    gap: 4vw;
+    color: rgb(255, 255, 255);
+    font-weight: 200;
+    font-family: Copperplate Gothic;
+    padding: 4px 24px;
+    border: 1px solid rgb(147, 141, 141);
+    border-radius: 50px;
+}
+
+  
+.container .overlay {
+    position: absolute; 
+    margin-top: 330px; 
+    margin-left: 350px;  
+    color: #dadada;
+    opacity: 100%;
+}
+
+.container .overlay p{
+   font-size:100px;
+   font-weight:500;  
+}
+
+.overlay span{
+    position: absolute; 
+    margin-top: 0px; 
+    margin-left:60px;  
+    color: #6d6d6d;
+    opacity: 100%;
+    font-size: 100px;
+    font-weight: 500;
+}
+
+
+  /* .overlay a{
+    padding: 4px 24px;
+    border: 1px solid white;
+    border-radius: 50px;
+    color: rgb(255, 255, 255);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    background: transparent;
+    font-size: 80px;
+    cursor: pointer;
+    font-family: Copperplate Gothic; 
+}  */
+
+img{
+    height: fit-content;
+    width: 100%;
+    border-bottom: solid 4px rgb(0, 0, 0) ; 
+ }
+
+.image1 img{
+    height: 100%;
+    width: 100%;
+    filter: contrast(1.1);
+}
+
+.page3{
+    border-bottom: solid 10px rgb(11, 23, 9);
+    background-color: rgb(255, 255, 255);
+    height: 100%;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center; 
+}
+   .booking a{
+    background: transparent;
+    padding: 4px 24px;
+    border: 2px solid rgb(255, 255, 255);
+    border-radius: 50px;
+    color: rgb(210, 232, 208);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    font-size: 80px;
+    font-family: Copperplate Gothic;
+} 
+
+.page3 .overlay {
+    position: absolute; 
+    margin-top: 100px; 
+    margin-left: 60px; 
+    color: #dadcd0;
+    opacity: 100%;
+    font-size:  20px;
+    font-weight: 500;
+}
+  
+
+  .page3 .booking{
+    margin-top: 250px;
+    margin-left: 230px;
+    font-size: 20px;
+    font-weight: 500;
+    color: #e3e3e3;   
+}   
+
+
+
+
+

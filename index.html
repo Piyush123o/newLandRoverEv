@@ -189,9 +189,9 @@
     box-shadow:0 0 0 999px rgba(0,0,0,.28);pointer-events:none;
   }
   .scan-status{margin:12px 0;font-size:15px;color:var(--muted);min-height:2.6em;padding:10px 12px;border-radius:8px;border:1px solid var(--line);background:#fff;transition:background .2s,color .2s}
-  .scan-status.added{background:var(--text);color:#fff;border-color:var(--text);font-weight:600}
-  #cartRows tr.flash td{background:#111;color:#fff;transition:background .2s}
-  #cartRows tr.flash .muted{color:#cfcfcf}
+  .scan-status.added{background:#15803d;color:#fff;border-color:#15803d;font-weight:600;box-shadow:0 0 0 4px rgba(21,128,61,.18)}
+  #cartRows tr.flash td{background:#dcfce7;color:#14532d;transition:background .2s}
+  #cartRows tr.flash .muted{color:#166534}
   .scan-manual{display:flex;gap:8px;background:#fff;padding:12px;border-radius:8px;border:1px solid var(--line)}
   .scan-manual input{flex:1}
 
@@ -808,7 +808,7 @@
 
   function setScanStatus(msg, added = false) {
     const el = $('#scanStatus');
-    el.textContent = msg;
+    el.textContent = added ? '✓ ' + msg : msg;
     el.classList.toggle('added', added);
     if (added) {
       clearTimeout(statusFlashTimer);

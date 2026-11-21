@@ -256,6 +256,10 @@
   .inv-table th{text-align:left;font-size:11px;font-weight:600;color:#8a8a8a;text-transform:uppercase;letter-spacing:.06em;padding:14px 8px 10px;border-bottom:1px solid #111}
   .inv-table th.num{text-align:right}
   .inv-table td{padding:12px 8px;border-bottom:1px solid #f0f0f0;vertical-align:top}
+  tr[hidden]{display:none !important}
+  .link-btn{background:none;border:0;color:#1d4ed8;font:inherit;font-weight:600;cursor:pointer;padding:6px 4px}
+  .link-btn:hover{text-decoration:underline}
+  tr.more-row td{text-align:center;background:#fafafa}
   .inv-table tbody tr:nth-child(even) td{background:#fafafa}
   .inv-table .num{text-align:right;font-variant-numeric:tabular-nums}
   .inv-table .c-idx{color:#8a8a8a;width:36px}
@@ -1488,6 +1492,7 @@
           </td>
         </tr>`;
     }).join('');
+    applyRowLimit('productRows');
   }
 
   /* =====================================================================
@@ -1839,6 +1844,7 @@
           </td>
         </tr>`).join('')
       : `<tr><td colspan="7" class="empty">No quotations yet. Switch to Quotation above to create one.</td></tr>`;
+    applyRowLimit('quoteRows');
   }
 
   // Records a payment against the open invoice
@@ -1882,6 +1888,34 @@
     if (selectedCustomer) run(() => openCustomer(selectedCustomer), 'Refreshing customer…');
   }
 
+  /* ---------- Long tables: show 3 rows, then a button to show all ---------- */
+  const ROW_LIMIT = 3;
+  const expandedTables = new Set();
+
+  function applyRowLimit(id) {
+    const body = document.getElementById(id);
+    if (!body) return;
+    body.querySelectorAll(':scope > tr.more-row').forEach(r => r.remove());
+    const rows = [...body.querySelectorAll(':scope > tr')].filter(r => !r.querySelector('td.empty'));
+    const open = expandedTables.has(id);
+    rows.forEach((r, i) => { r.hidden = !open && i >= ROW_LIMIT; });
+    if (rows.length > ROW_LIMIT) {
+      const cols = body.closest('table').querySelectorAll('thead th').length;
+      const tr = document.createElement('tr');
+      tr.className = 'more-row';
+      tr.innerHTML = `<td colspan="${cols}"><button type="button" class="link-btn" data-toggle-rows="${id}">${open ? 'Show less ▴' : `Show all ${rows.length} rows ▾`}</button></td>`;
+      body.appendChild(tr);
+    }
+  }
+
+  document.addEventListener('click', e => {
+    const btn = e.target.closest('[data-toggle-rows]');
+    if (!btn) return;
+    const id = btn.dataset.toggleRows;
+    if (expandedTables.has(id)) expandedTables.delete(id); else expandedTables.add(id);
+    applyRowLimit(id);
+  });
+
   /* ---------- Customers ---------- */
   let selectedCustomer = null;
 
@@ -1900,6 +1934,7 @@
           <td class="num ${Number(c.outstanding) > 0 ? 'neg' : ''}">${money(c.outstanding)}</td>
         </tr>`).join('')
       : `<tr><td colspan="5" class="empty">No customers found. A customer is saved when a bill is made with a mobile number.</td></tr>`;
+    applyRowLimit('customerRows');
   }
 
   async function openCustomer(id) {
@@ -1937,6 +1972,7 @@
           <td>${b.status === 'cancelled' ? '<span class="neg">Cancelled</span>' : 'Active'}</td>
         </tr>`).join('')
       : `<tr><td colspan="6" class="empty">No bills for this customer yet.</td></tr>`;
+    applyRowLimit('custBillRows');
 
     $('#customerDetail').hidden = false;
     $$('#customerRows tr').forEach(r => r.classList.toggle('selected', r.dataset.customer === id));
@@ -1958,6 +1994,7 @@
           <td class="num"><b>${num(p.reorder_qty)}</b></td>
         </tr>`).join('')
       : `<tr><td colspan="5" class="empty">Nothing is at or below its reorder level.</td></tr>`;
+    applyRowLimit('lowStockRows');
   }
 
   async function quoteToBill(id) {
@@ -2335,6 +2372,7 @@
     $('#todayBillRows').innerHTML = bills.data.length
       ? bills.data.map(b => billRow(b, false)).join('')
       : `<tr><td colspan="6" class="empty">No bills yet today. Create one on the Billing page.</td></tr>`;
+    applyRowLimit('todayBillRows');
   }
 
   /* =====================================================================
@@ -2393,6 +2431,7 @@
           <td class="num ${r.profit < 0 ? 'neg' : ''}">${money(r.profit)}</td>
         </tr>`).join('')
       : `<tr><td colspan="6" class="empty">No sales recorded for this period yet.</td></tr>`;
+    applyRowLimit('historyRows');
 
     if (grain === 'day' && selectedDay) {
       await loadDayBills(selectedDay);
@@ -2413,6 +2452,7 @@
     $('#dayRows').innerHTML = data.length
       ? data.map(b => billRow(b, true)).join('')
       : `<tr><td colspan="7" class="empty">No bills on this day.</td></tr>`;
+    applyRowLimit('dayRows');
     $('#dayCard').hidden = false;
   }
 

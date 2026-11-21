@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://cdn.jsdelivr.net; img-src 'self' data: blob:; media-src 'self' blob:; worker-src 'self' blob:">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://cdn.jsdelivr.net; img-src 'self' data: blob:; media-src 'self' blob:; worker-src 'self' blob:">
 <title>Electronic Shop · Billing & Sales</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -876,6 +876,8 @@
     <div class="modal-body" id="invoiceBody"></div>
     <div class="modal-actions">
       <button type="button" class="btn ghost" data-close>Close</button>
+      <button type="button" class="btn ghost" id="waBtn">WhatsApp</button>
+      <button type="button" class="btn ghost" id="pdfBtn">Download PDF</button>
       <button type="button" class="btn" id="printBtn">Print bill</button>
     </div>
   </div>
@@ -2194,6 +2196,113 @@
     $('#invoiceModal').classList.remove('show');
   }
 
+  /* ---------- Share: PDF download and WhatsApp ---------- */
+  let pdfLibPromise = null;
+
+  // The PDF library is loaded only when first needed.
+  function loadPdfLib() {
+    if (window.html2pdf) return Promise.resolve(window.html2pdf);
+    if (!pdfLibPromise) {
+      pdfLibPromise = new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+        s.onload = () => resolve(window.html2pdf);
+        s.onerror = () => {
+          pdfLibPromise = null;
+          reject(new Error('The PDF tool could not be loaded. Check the internet connection.'));
+        };
+        document.head.appendChild(s);
+      });
+    }
+    return pdfLibPromise;
+  }
+
+  // Renders the bill exactly as it looks on screen and returns a PDF blob.
+  async function buildPdf(view) {
+    const html2pdf = await loadPdfLib();
+    const holder = document.createElement('div');
+    holder.style.cssText = 'position:fixed;left:-10000px;top:0;width:794px;background:#fff';
+    holder.innerHTML = invoiceHTML(view);
+    document.body.appendChild(holder);
+    try {
+      return await html2pdf()
+        .set({
+          margin: 10,
+          image: { type: 'jpeg', quality: 0.98 },
+          html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
+          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        })
+        .from(holder.firstElementChild)
+        .outputPdf('blob');
+    } finally {
+      holder.remove();
+    }
+  }
+
+  function downloadBlob(blob, fileName) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  }
+
+  async function downloadPdf() {
+    if (!currentDoc) return;
+    const v = currentDoc;
+    const blob = await run(() => buildPdf(v), 'Creating PDF…');
+    if (blob) downloadBlob(blob, `${v.invoiceNo}.pdf`);
+  }
+
+  // Plain-text version of the bill, used for WhatsApp.
+  function whatsappText(v) {
+    const shop = cache.shop;
+    const lines = [
+      `*${shop.name || 'Electronic Shop'}*`,
+      `${v.isQuote ? 'Quotation' : 'Bill'} ${v.invoiceNo} · ${fmtDate(v.date)}`,
+      ''
+    ];
+    v.items.forEach((it, i) => lines.push(`${i + 1}. ${it.name} × ${it.qty} = ${money(it.sell * it.qty)}`));
+    lines.push('');
+    if (v.discount > 0) lines.push(`Discount: ${money(v.discount)}`);
+    lines.push(`*Total: ${money(v.total)}*`);
+    if (!v.isQuote && v.status !== 'cancelled') {
+      lines.push(`Paid: ${money(v.paid)}`);
+      if (v.balance > 0) lines.push(`*Balance due: ${money(v.balance)}*`);
+    }
+    lines.push('', 'Thank you for shopping with us!');
+    return lines.join('\n');
+  }
+
+  // On phones and tablets, the PDF goes through the share sheet, where WhatsApp
+  // can be chosen. Elsewhere, WhatsApp opens with the bill text.
+  async function shareWhatsApp() {
+    if (!currentDoc) return;
+    const v = currentDoc;
+    const text = whatsappText(v);
+
+    const probe = new File([''], 'probe.pdf', { type: 'application/pdf' });
+    if (navigator.canShare && navigator.canShare({ files: [probe] })) {
+      const blob = await run(() => buildPdf(v), 'Preparing PDF…');
+      if (blob) {
+        const file = new File([blob], `${v.invoiceNo}.pdf`, { type: 'application/pdf' });
+        try {
+          await navigator.share({ files: [file], title: v.invoiceNo, text });
+          return;
+        } catch (e) {
+          if (e.name === 'AbortError') return;   // user closed the share sheet
+        }
+      }
+    }
+
+    const digits = (v.mobile || '').replace(/\D/g, '');
+    const phone = digits.length === 10 ? '91' + digits : '';
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(text)}`, '_blank', 'noopener');
+  }
+
   function printInvoice() {
     if (!currentDoc) return;
     $('#printArea').innerHTML = invoiceHTML(currentDoc);
@@ -2821,6 +2930,8 @@
   });
 
   $('#printBtn').addEventListener('click', printInvoice);
+  $('#pdfBtn').addEventListener('click', downloadPdf);
+  $('#waBtn').addEventListener('click', shareWhatsApp);
   $('#shopSave').addEventListener('click', saveShop);
   $('#closeDay').addEventListener('click', () => {
     selectedDay = null;

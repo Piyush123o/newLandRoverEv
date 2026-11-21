@@ -242,21 +242,38 @@
   .scan-manual input{flex:1}
 
   /* Invoice */
-  .invoice{background:#fff;color:#111;padding:28px;font-size:13px;border:1px solid var(--line);border-radius:8px}
-  .inv-head{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;padding-bottom:16px;border-bottom:2px solid #111}
-  .inv-shop{font-size:18px;font-weight:700}
-  .inv-meta{text-align:right}
-  .inv-title{font-size:20px;font-weight:700;margin-bottom:4px}
-  .inv-cust{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:14px 0;border-bottom:1px solid var(--line)}
-  .inv-cust span{display:block;color:var(--muted);font-size:12px}
-  .inv-table{width:100%;border-collapse:collapse;margin-top:14px}
-  .inv-table th,.inv-table td{padding:8px 6px;border-bottom:1px solid #eee;text-align:left;font-size:13px}
-  .inv-table .num{text-align:right}
-  .inv-sub{font-size:11px;color:var(--muted)}
-  .inv-totals{margin-top:14px;margin-left:auto;max-width:280px}
-  .inv-totals div{display:flex;justify-content:space-between;padding:4px 0;gap:12px}
-  .inv-totals .grand{border-top:2px solid #111;margin-top:6px;padding-top:8px;font-size:16px;font-weight:700}
-  .inv-foot{margin-top:24px;text-align:center;color:var(--muted);font-size:12px}
+  .invoice{position:relative;overflow:hidden;background:#fff;color:#111;padding:32px 32px 28px;font-size:13px;border:1px solid #eee;border-radius:14px;box-shadow:0 1px 2px rgba(0,0,0,.05),0 12px 32px rgba(0,0,0,.06)}
+  .invoice::before{content:"";position:absolute;left:0;right:0;top:0;height:6px;background:#111}
+  .inv-top{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;padding-bottom:20px;border-bottom:1px solid #eee}
+  .inv-brand{display:flex;gap:12px;align-items:center;min-width:0}
+  .inv-logo{width:46px;height:46px;border-radius:12px;background:#111;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:18px;flex:none}
+  .inv-shop{font-size:18px;font-weight:700;letter-spacing:-.01em}
+  .inv-muted{color:#6b6b6b;font-size:12px;line-height:1.6;overflow-wrap:anywhere}
+  .inv-doc{text-align:right}
+  .inv-pill{display:inline-block;padding:4px 10px;border-radius:999px;background:#f1f1f1;font-size:11px;font-weight:600;letter-spacing:.04em;color:#333}
+  .inv-no{font-size:20px;font-weight:700;margin-top:6px;font-variant-numeric:tabular-nums}
+  .inv-meta{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:14px 18px;padding:18px 0;border-bottom:1px solid #eee}
+  .inv-meta span{display:block;color:#8a8a8a;font-size:11px;text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px}
+  .inv-meta > div{font-weight:500;overflow-wrap:anywhere}
+  .inv-table{width:100%;border-collapse:collapse;margin-top:6px}
+  .inv-table th{text-align:left;font-size:11px;font-weight:600;color:#8a8a8a;text-transform:uppercase;letter-spacing:.06em;padding:14px 8px 10px;border-bottom:1px solid #111}
+  .inv-table th.num{text-align:right}
+  .inv-table td{padding:12px 8px;border-bottom:1px solid #f0f0f0;vertical-align:top}
+  .inv-table tbody tr:nth-child(even) td{background:#fafafa}
+  .inv-table .num{text-align:right;font-variant-numeric:tabular-nums}
+  .inv-table .c-idx{color:#8a8a8a;width:36px}
+  .inv-table td.strong{font-weight:600}
+  .p-name{font-weight:600}
+  .p-id{font-size:11px;color:#8a8a8a;margin-top:2px}
+  .inv-bottom{display:flex;justify-content:space-between;align-items:flex-end;gap:24px;flex-wrap:wrap;margin-top:18px}
+  .inv-note{color:#6b6b6b;font-size:12px;max-width:260px;line-height:1.6}
+  .inv-totals{min-width:250px;background:#f7f7f7;border-radius:12px;padding:14px 16px}
+  .inv-totals div{display:flex;justify-content:space-between;gap:16px;padding:4px 0;font-variant-numeric:tabular-nums;color:#555}
+  .inv-totals div span:last-child{color:#111}
+  .inv-totals .disc span:last-child{color:#15803d}
+  .inv-totals .grand{margin-top:8px;padding:12px 14px;border-radius:10px;background:#111;color:#fff;font-size:17px;font-weight:700}
+  .inv-totals .grand span,.inv-totals .grand span:last-child{color:#fff}
+  .inv-foot{margin-top:26px;text-align:center;color:#8a8a8a;font-size:11px;letter-spacing:.02em}
   #printArea{display:none}
 
   /* Toasts */
@@ -1591,50 +1608,65 @@
 
   function invoiceHTML(b) {
     const shop = state.meta.shop || {};
+    const isQuote = b.invoiceNo.startsWith('QTN');
+    const title = isQuote ? 'Quotation' : 'Invoice';
+    const shopInitial = esc((shop.name || 'Electronic Shop').trim().charAt(0).toUpperCase());
+    const contact = [
+      shop.phone ? 'Phone ' + esc(shop.phone) : '',
+      shop.gst ? 'GSTIN ' + esc(shop.gst) : ''
+    ].filter(Boolean).join(' | ');
+
     const rows = b.items.map((it, i) => `
       <tr>
-        <td>${i + 1}</td>
-        <td>${esc(it.name)}<div class="inv-sub">${esc(it.productId)}</div></td>
+        <td class="c-idx">${i + 1}</td>
+        <td><div class="p-name">${esc(it.name)}</div><div class="p-id">${esc(it.productId)}</div></td>
         <td class="num">${num(it.qty)}</td>
         <td class="num">${money(it.sell)}</td>
-        <td class="num">${money(it.sell * it.qty)}</td>
+        <td class="num strong">${money(it.sell * it.qty)}</td>
       </tr>`).join('');
 
     return `
-      <div class="invoice">
-        <div class="inv-head">
-          <div>
-            <div class="inv-shop">${esc(shop.name || 'Electronic Shop')}</div>
-            ${shop.address ? `<div>${esc(shop.address)}</div>` : ''}
-            ${shop.phone ? `<div>Phone: ${esc(shop.phone)}</div>` : ''}
-            ${shop.gst ? `<div>GSTIN: ${esc(shop.gst)}</div>` : ''}
+      <article class="invoice">
+        <header class="inv-top">
+          <div class="inv-brand">
+            <div class="inv-logo">${shopInitial}</div>
+            <div>
+              <div class="inv-shop">${esc(shop.name || 'Electronic Shop')}</div>
+              ${shop.address ? `<div class="inv-muted">${esc(shop.address)}</div>` : ''}
+              ${contact ? `<div class="inv-muted">${contact}</div>` : ''}
+            </div>
           </div>
-          <div class="inv-meta">
-            <div class="inv-title">${b.invoiceNo.startsWith('QTN') ? 'Quotation' : 'Invoice'}</div>
-            <div>No: <b>${esc(b.invoiceNo)}</b></div>
-            <div>Date: ${fmtDate(b.date)}</div>
-            <div>Time: ${esc(b.time)}</div>
+          <div class="inv-doc">
+            <span class="inv-pill">${title}</span>
+            <div class="inv-no">${esc(b.invoiceNo)}</div>
           </div>
-        </div>
-        <div class="inv-cust">
-          <div><span>Bill to</span>${esc(b.customer)}</div>
+        </header>
+
+        <section class="inv-meta">
+          <div><span>Date</span>${fmtDate(b.date)}</div>
+          <div><span>Time</span>${esc(b.time)}</div>
+          <div><span>Customer</span>${esc(b.customer)}</div>
           <div><span>Mobile</span>${esc(b.mobile || '—')}</div>
           ${b.customerGst ? `<div><span>Customer GSTIN</span>${esc(b.customerGst)}</div>` : ''}
-        </div>
+        </section>
+
         <table class="inv-table">
           <thead>
             <tr><th>#</th><th>Item</th><th class="num">Qty</th><th class="num">Rate</th><th class="num">Amount</th></tr>
           </thead>
           <tbody>${rows}</tbody>
         </table>
-        <div class="inv-totals">
-          <div><span>Total items</span><span>${num(b.totalQty)}</span></div>
-          <div><span>Subtotal</span><span>${money(b.subtotal)}</span></div>
-          ${b.discount > 0 ? `<div><span>Discount</span><span>- ${money(b.discount)}</span></div>` : ''}
-          <div class="grand"><span>Total</span><span>${money(b.total)}</span></div>
+
+        <div class="inv-bottom">
+          <div class="inv-note">${isQuote ? 'This is a quotation, not a bill. Prices may change.' : 'Thank you for shopping with us.'}</div>
+          <div class="inv-totals">
+            <div><span>Items</span><span>${num(b.totalQty)}</span></div>
+            <div><span>Subtotal</span><span>${money(b.subtotal)}</span></div>
+            ${b.discount > 0 ? `<div class="disc"><span>Discount</span><span>- ${money(b.discount)}</span></div>` : ''}
+            <div class="grand"><span>Total</span><span>${money(b.total)}</span></div>
+          </div>
         </div>
-        <div class="inv-foot">${b.invoiceNo.startsWith('QTN') ? 'This is a quotation, not a bill. Prices may change.' : 'Thank you for your purchase.'}</div>
-      </div>`;
+      </article>`;
   }
 
   function openInvoice(bill) {

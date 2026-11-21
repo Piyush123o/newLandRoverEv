@@ -381,6 +381,7 @@
           <div class="field"><label for="shopName">Shop name</label><input id="shopName" type="text" maxlength="80" placeholder="Your shop name"></div>
           <div class="field"><label for="shopPhone">Phone</label><input id="shopPhone" type="tel" maxlength="20" placeholder="Shop phone number"></div>
           <div class="field"><label for="shopAddress">Address</label><input id="shopAddress" type="text" maxlength="160" placeholder="Shop address"></div>
+          <div class="field"><label for="shopGst">GST number (GSTIN)</label><input id="shopGst" type="text" maxlength="15" placeholder="e.g. 27AAAAA0000A1Z5" style="text-transform:uppercase"></div>
         </div>
         <div style="margin-top:14px;display:flex;justify-content:flex-end">
           <button type="button" class="btn" id="shopSave">Save details</button>
@@ -413,6 +414,10 @@
               <div class="field">
                 <label for="custMobile">Mobile number</label>
                 <input id="custMobile" type="tel" inputmode="numeric" maxlength="14" placeholder="10-digit number (optional)">
+              </div>
+              <div class="field">
+                <label for="custGst">Customer GST number (optional)</label>
+                <input id="custGst" type="text" maxlength="15" placeholder="For business customers" style="text-transform:uppercase">
               </div>
             </div>
           </div>
@@ -740,7 +745,7 @@
       productSeq: 0,
       invoiceSeq: 0,
       quoteSeq: 0,
-      shop: { name: '', phone: '', address: '' }
+      shop: { name: '', phone: '', address: '', gst: '' }
     }
   });
 
@@ -1381,6 +1386,7 @@
     pendingQuoteId = null;
     $('#custName').value = '';
     $('#custMobile').value = '';
+    $('#custGst').value = '';
     $('#discount').value = 0;
     $('#prodSearch').value = '';
     $('#qty').value = 1;
@@ -1392,6 +1398,7 @@
 
   function completeBill() {
     if (mode === 'quotation') return saveQuotation();
+    if (!validCustomerGst()) return;
     if (!cart.length) return toast('Add at least one product to the bill', 'error');
 
     const t = totals();
@@ -1415,6 +1422,7 @@
       timestamp: now.getTime(),
       customer: $('#custName').value.trim() || 'Walk-in Customer',
       mobile,
+      customerGst: $('#custGst').value.trim().toUpperCase(),
       items: cart.map(i => ({
         productId: i.productId,
         name: i.name,
@@ -1446,6 +1454,19 @@
     toast(`Bill ${bill.invoiceNo} saved`);
   }
 
+  /* ---------- GST number ---------- */
+  // 15 characters: 2-digit state code, PAN (10), entity number, Z, check character
+  const GSTIN_RE = /^\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
+
+  function validCustomerGst() {
+    const g = $('#custGst').value.trim().toUpperCase();
+    if (g && !GSTIN_RE.test(g)) {
+      toast('Customer GST number is not valid (15 characters, e.g. 27AAAAA0000A1Z5)', 'error');
+      return false;
+    }
+    return true;
+  }
+
   /* ---------- Quotations ---------- */
   let mode = 'invoice';          // 'invoice' or 'quotation'
   let pendingQuoteId = null;     // quotation loaded into the bill, not yet billed
@@ -1458,6 +1479,7 @@
 
   function saveQuotation() {
     if (!cart.length) return toast('Add at least one product to the quotation', 'error');
+    if (!validCustomerGst()) return;
 
     const t = totals();
     if (t.discount < 0 || t.discount > t.subtotal) {
@@ -1479,6 +1501,7 @@
       timestamp: now.getTime(),
       customer: $('#custName').value.trim() || 'Walk-in Customer',
       mobile,
+      customerGst: $('#custGst').value.trim().toUpperCase(),
       items: cart.map(i => ({
         productId: i.productId,
         name: i.name,
@@ -1515,6 +1538,7 @@
     }));
     $('#custName').value = q.customer === 'Walk-in Customer' ? '' : q.customer;
     $('#custMobile').value = q.mobile || '';
+    $('#custGst').value = q.customerGst || '';
     $('#discount').value = q.discount || 0;
     pendingQuoteId = q.id;
     setMode('invoice');
@@ -1583,6 +1607,7 @@
             <div class="inv-shop">${esc(shop.name || 'Electronic Shop')}</div>
             ${shop.address ? `<div>${esc(shop.address)}</div>` : ''}
             ${shop.phone ? `<div>Phone: ${esc(shop.phone)}</div>` : ''}
+            ${shop.gst ? `<div>GSTIN: ${esc(shop.gst)}</div>` : ''}
           </div>
           <div class="inv-meta">
             <div class="inv-title">${b.invoiceNo.startsWith('QTN') ? 'Quotation' : 'Invoice'}</div>
@@ -1594,6 +1619,7 @@
         <div class="inv-cust">
           <div><span>Bill to</span>${esc(b.customer)}</div>
           <div><span>Mobile</span>${esc(b.mobile || '—')}</div>
+          ${b.customerGst ? `<div><span>Customer GSTIN</span>${esc(b.customerGst)}</div>` : ''}
         </div>
         <table class="inv-table">
           <thead>
@@ -1637,10 +1663,16 @@
     $('#shopName').value = state.meta.shop.name || '';
     $('#shopPhone').value = state.meta.shop.phone || '';
     $('#shopAddress').value = state.meta.shop.address || '';
+    $('#shopGst').value = state.meta.shop.gst || '';
   }
 
   function saveShop() {
+    const gst = $('#shopGst').value.trim().toUpperCase();
+    if (gst && !GSTIN_RE.test(gst)) {
+      return toast('Shop GST number is not valid (15 characters, e.g. 27AAAAA0000A1Z5)', 'error');
+    }
     state.meta.shop = {
+      gst,
       name: $('#shopName').value.trim(),
       phone: $('#shopPhone').value.trim(),
       address: $('#shopAddress').value.trim()

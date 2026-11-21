@@ -241,7 +241,6 @@
 
   /* Invoice */
   .invoice{position:relative;overflow:hidden;background:#fff;color:#111;padding:32px 32px 28px;font-size:13px;border:1px solid #eee;border-radius:14px;box-shadow:0 1px 2px rgba(0,0,0,.05),0 12px 32px rgba(0,0,0,.06)}
-  .invoice::before{content:"";position:absolute;left:0;right:0;top:0;height:6px;background:#111}
   .inv-top{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;padding-bottom:20px;border-bottom:1px solid #eee}
   .inv-brand{display:flex;gap:12px;align-items:center;min-width:0}
   .inv-logo{width:46px;height:46px;border-radius:12px;background:#111;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:18px;flex:none}
@@ -290,6 +289,21 @@
   .auth-card form{display:flex;flex-direction:column;gap:12px;margin-top:20px}
   .auth-error{color:var(--danger);font-size:13px;min-height:1.2em}
   .db-host{font-size:13px;word-break:break-all;color:var(--muted)}
+
+  /* Database status card */
+  .db-card{display:grid;grid-template-columns:minmax(0,1fr) 150px;gap:20px;align-items:center}
+  .db-status{display:flex;align-items:center;gap:10px;font-weight:600;font-size:16px}
+  .dot{width:12px;height:12px;border-radius:50%;background:#15803d;box-shadow:0 0 0 4px rgba(21,128,61,.15);flex:none}
+  .dot.off{background:var(--danger);box-shadow:0 0 0 4px rgba(180,35,24,.15)}
+  .db-meta{color:var(--muted);font-size:13px;margin-top:8px;line-height:1.7;overflow-wrap:anywhere}
+  .donut{width:140px;height:140px;position:relative}
+  .donut svg{width:100%;height:100%;transform:rotate(-90deg);display:block}
+  .donut-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:12px;color:var(--muted)}
+  .donut-center b{font-size:20px;color:var(--text)}
+  @media (max-width:560px){
+    .db-card{grid-template-columns:1fr;justify-items:center;text-align:center}
+    .db-status{justify-content:center}
+  }
 
   /* Responsive */
   @media (max-width:1080px){
@@ -418,6 +432,15 @@
         <div class="card stat"><div class="label">Products sold today</div><div class="value" id="dQty">0</div></div>
         <div class="card stat"><div class="label">Today's profit</div><div class="value" id="dProfit">₹0.00</div></div>
         <div class="card stat"><div class="label">Buying cost of items sold</div><div class="value" id="dCost">₹0.00</div></div>
+      </div>
+
+      <div class="card section-gap db-card">
+        <div>
+          <div class="db-status"><span class="dot" id="dbDot"></span><span id="dbStatusText">Checking connection…</span></div>
+          <div class="db-meta" id="dbMeta"></div>
+          <div class="db-meta" id="dbUsage"></div>
+        </div>
+        <div class="donut" id="donut" aria-label="Database usage"></div>
       </div>
 
       <div class="card section-gap">
@@ -1863,6 +1886,53 @@
   /* =====================================================================
      Dashboard
      ===================================================================== */
+  // Connection status and database size. Errors are shown in the card and never block the dashboard.
+  const fmtBytes = b => (b >= 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.max(0, Math.round(b / 1024)) + ' KB');
+
+  function renderDonut(used, limit) {
+    const pct = limit ? Math.min(100, (used / limit) * 100) : 0;
+    const C = 2 * Math.PI * 54;
+    const color = pct >= 90 ? '#b42318' : pct >= 70 ? '#b45309' : '#111111';
+    $('#donut').innerHTML = `
+      <svg viewBox="0 0 140 140" role="img" aria-label="${pct.toFixed(1)} percent used">
+        <circle cx="70" cy="70" r="54" fill="none" stroke="#efefef" stroke-width="14"/>
+        <circle cx="70" cy="70" r="54" fill="none" stroke="${color}" stroke-width="14" stroke-linecap="round"
+                stroke-dasharray="${C}" stroke-dashoffset="${C * (1 - pct / 100)}"/>
+      </svg>
+      <div class="donut-center"><b>${pct.toFixed(1)}%</b><span>used</span></div>`;
+    $('#dbUsage').textContent = `Database size: ${fmtBytes(used)} of ${fmtBytes(limit)}`;
+  }
+
+  async function refreshDbStatus() {
+    const t0 = performance.now();
+    try {
+      const [ping, usage] = await Promise.all([
+        sb.from('shop_settings').select('id').eq('id', 1).maybeSingle(),
+        sb.rpc('database_usage')
+      ]);
+      const ms = Math.round(performance.now() - t0);
+      if (ping.error) throw ping.error;
+
+      $('#dbDot').classList.remove('off');
+      $('#dbStatusText').textContent = 'Connected';
+      $('#dbMeta').textContent = `Response time ${ms} ms`;
+
+      if (usage.error || !usage.data || !usage.data.length) {
+        $('#dbUsage').textContent = 'Database size unavailable';
+        renderDonut(0, 0);
+      } else {
+        renderDonut(Number(usage.data[0].size_bytes), Number(usage.data[0].limit_bytes));
+      }
+    } catch (err) {
+      console.error(err);
+      $('#dbDot').classList.add('off');
+      $('#dbStatusText').textContent = 'Not connected';
+      $('#dbMeta').textContent = friendlyError(err);
+      $('#dbUsage').textContent = '';
+      renderDonut(0, 0);
+    }
+  }
+
   const ZERO = { bills: 0, qty: 0, revenue: 0, cost: 0, profit: 0 };
   const salesSeries = rows => [
     { name: 'Sales', color: '#111111', values: rows.map(r => Number(r.revenue)) },
@@ -1915,6 +1985,7 @@
       timeZone: TZ, weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
     });
 
+    refreshDbStatus();   // runs alongside the dashboard and shows its own errors
     const from7 = shiftKey(today, -6);
     const [todaySales, week, bills] = await Promise.all([
       sb.rpc('sales_report', { p_grain: 'day', p_from: today, p_to: today }),

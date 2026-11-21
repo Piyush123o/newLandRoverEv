@@ -5,5 +5,5 @@
 // because Row Level Security protects the data.
 window.APP_CONFIG = {
   SUPABASE_URL: 'https://aqbewwwqmyrgcnhrfazj.supabase.co',
-  SUPABASE_PUBLISHABLE_KEY: 
+  SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_FuK-7sG3h59iI0sgxPR2iA_jO6EeeQy'
 };

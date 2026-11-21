@@ -329,7 +329,12 @@
   @media print{
     body > *:not(#printArea){display:none !important}
     #printArea{display:block !important}
-    #printArea .invoice{border:0;border-radius:0;padding:0}
+    #printArea *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    #printArea .invoice{border:0;border-radius:0;padding:0;box-shadow:none !important;background:#fff}
+    #printArea .inv-totals{background:none;padding:0;min-width:240px}
+    #printArea .inv-totals .grand{background:none !important;color:#111 !important;border:2px solid #111;font-size:19px;padding:10px 12px}
+    #printArea .inv-totals .grand span{color:#111 !important}
+    #printArea .inv-totals .disc span:last-child{color:#111}
     @page{margin:10mm}
   }
   @media (prefers-reduced-motion:reduce){*{transition:none !important;animation:none !important}}

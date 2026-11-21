@@ -290,6 +290,10 @@
   .auth-error{color:var(--danger);font-size:13px;min-height:1.2em}
   .db-host{font-size:13px;word-break:break-all;color:var(--muted)}
 
+  /* Payments, customers and low stock */
+  .method-select{padding:10px;border:1px solid #d4d4d4;border-radius:8px;background:#fff;min-width:0}
+  .pay-panel{margin-top:14px}
+
   /* Database status card */
   .db-card{display:grid;grid-template-columns:minmax(0,1fr) 150px;gap:20px;align-items:center}
   .db-status{display:flex;align-items:center;gap:10px;font-weight:600;font-size:16px}
@@ -403,6 +407,10 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg>
         <span>Sales Reports</span>
       </button>
+      <button type="button" data-page="customers">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="4"/><path d="M2 21v-1a6 6 0 0 1 6-6h2a6 6 0 0 1 6 6v1"/><path d="M17 11a3 3 0 1 0 0-6"/><path d="M22 21v-1a4 4 0 0 0-3-3.9"/></svg>
+        <span>Customers</span>
+      </button>
       <button type="button" data-page="settings">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="16" cy="18" r="2"/></svg>
         <span>Settings</span>
@@ -450,6 +458,21 @@
           <div class="db-meta" id="dbUsage"></div>
         </div>
         <div class="donut" id="donut" aria-label="Database usage"></div>
+      </div>
+
+      <div class="card section-gap">
+        <div class="card-head">
+          <h2>Low stock <span class="count" id="lowStockCount"></span></h2>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Product ID</th><th>Name</th><th class="num">In stock</th><th class="num">Reorder level</th><th class="num">Reorder qty</th></tr>
+            </thead>
+            <tbody id="lowStockRows"></tbody>
+          </table>
+        </div>
+        <p class="hint" style="margin:10px 0 0">Set a reorder level and reorder quantity on the Products page. Items at or below their level appear here.</p>
       </div>
 
       <div class="card section-gap">
@@ -563,6 +586,18 @@
             <input id="discount" type="number" min="0" step="0.01" value="0">
           </div>
           <div class="summary-row total"><span>Total</span><span id="bTotal">₹0.00</span></div>
+          <div class="field" id="payField">
+            <label for="paidNow">Paid now (₹) · leave empty for credit</label>
+            <div class="input-action">
+              <input id="paidNow" type="number" min="0" step="0.01" placeholder="0.00">
+              <select id="payMethod" class="method-select">
+                <option value="cash">Cash</option>
+                <option value="upi">UPI</option>
+                <option value="card">Card</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+          </div>
           <div class="summary-row"><span>Buying cost</span><span id="bCost">₹0.00</span></div>
           <div class="summary-row"><span>Profit</span><span id="bProfit">₹0.00</span></div>
           <button type="button" class="btn full" id="completeBtn">Save & print bill</button>
@@ -616,6 +651,14 @@
           <div class="field">
             <label for="pStock">Stock quantity</label>
             <input id="pStock" type="number" min="0" step="1" value="0">
+          </div>
+          <div class="field">
+            <label for="pReorder">Reorder level</label>
+            <input id="pReorder" type="number" min="0" step="1" value="0">
+          </div>
+          <div class="field">
+            <label for="pReorderQty">Reorder quantity</label>
+            <input id="pReorderQty" type="number" min="0" step="1" value="0">
           </div>
           <div class="field">
             <label for="pBuy">Buying price (₹)</label>
@@ -725,6 +768,47 @@
               </tr>
             </thead>
             <tbody id="dayRows"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- CUSTOMERS -->
+    <section class="page" id="page-customers">
+      <div class="page-head">
+        <div>
+          <h1>Customers</h1>
+          <p class="sub">Search by mobile number or name. Outstanding is the unpaid balance on active bills.</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h2>All customers</h2>
+          <input id="custSearch" class="search-input" type="text" placeholder="Search by mobile or name" autocomplete="off">
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Name</th><th>Mobile</th><th class="num">Bills</th><th class="num">Total spent</th><th class="num">Outstanding</th></tr>
+            </thead>
+            <tbody id="customerRows"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card section-gap" id="customerDetail" hidden>
+        <div class="card-head">
+          <h2 id="custTitle"></h2>
+          <button type="button" class="btn ghost small" id="custClose">Close</button>
+        </div>
+        <div id="custInfo" style="margin-bottom:14px"></div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Invoice</th><th>Date</th><th class="num">Amount</th><th class="num">Paid</th><th class="num">Balance</th><th>Status</th></tr>
+            </thead>
+            <tbody id="custBillRows"></tbody>
           </table>
         </div>
       </div>
@@ -992,6 +1076,7 @@
     const { data, error } = await sb.from('products').select('*').order('product_code');
     if (error) throw error;
     cache.products = data;
+    renderLowStock();
   }
 
   async function loadShop() {
@@ -1015,7 +1100,7 @@
   /* =====================================================================
      Navigation
      ===================================================================== */
-  const PAGES = ['dashboard', 'billing', 'products', 'reports', 'settings'];
+  const PAGES = ['dashboard', 'billing', 'products', 'reports', 'customers', 'settings'];
   const currentPage = () => {
     const a = $('.page.active');
     return a ? a.id.replace('page-', '') : 'dashboard';
@@ -1035,6 +1120,7 @@
     if (name === 'billing') { renderCart(); return refreshQuotes(); }
     if (name === 'products') return renderProducts();
     if (name === 'reports') return refreshReports();
+    if (name === 'customers') return refreshCustomers();
     if (name === 'settings') return refreshSettings();
   }
 
@@ -1263,6 +1349,8 @@
     editingProductId = null;
     ['#pName', '#pBarcode', '#pBuy', '#pSell'].forEach(sel => { $(sel).value = ''; });
     $('#pStock').value = 0;
+    $('#pReorder').value = 0;
+    $('#pReorderQty').value = 0;
     $('#pFormTitle').textContent = 'Add a product';
     $('#pSubmit').textContent = 'Add product';
     $('#pCancel').hidden = true;
@@ -1276,6 +1364,8 @@
     $('#pName').value = p.name;
     $('#pBarcode').value = p.barcode || '';
     $('#pStock').value = p.stock_qty;
+    $('#pReorder').value = p.reorder_level;
+    $('#pReorderQty').value = p.reorder_qty;
     $('#pBuy').value = p.buy_price;
     $('#pSell').value = p.sell_price;
     $('#pFormTitle').textContent = `Edit ${p.name} (${p.product_code})`;
@@ -1292,6 +1382,11 @@
     const buy = parseFloat($('#pBuy').value);
     const sell = parseFloat($('#pSell').value);
     const stock = parseInt($('#pStock').value || '0', 10);
+    const reorderLevel = parseInt($('#pReorder').value || '0', 10);
+    const reorderQty = parseInt($('#pReorderQty').value || '0', 10);
+    if (isNaN(reorderLevel) || reorderLevel < 0 || isNaN(reorderQty) || reorderQty < 0) {
+      return toast('Reorder values cannot be negative', 'error');
+    }
 
     if (!name) return toast('Enter a product name', 'error');
     if (isNaN(buy) || buy < 0) return toast('Enter a valid buying price', 'error');
@@ -1306,7 +1401,9 @@
         p_barcode: barcode || null,
         p_buy_price: buy,
         p_sell_price: sell,
-        p_stock_qty: stock
+        p_stock_qty: stock,
+        p_reorder_level: reorderLevel,
+        p_reorder_qty: reorderQty
       });
       if (error) throw error;
       await loadProducts();
@@ -1614,6 +1711,7 @@
     $('#custMobile').value = '';
     $('#custGst').value = '';
     $('#discount').value = 0;
+    $('#paidNow').value = '';
     $('#prodSearch').value = '';
     $('#qty').value = 1;
     selectedProduct = null;
@@ -1626,6 +1724,7 @@
     mode = m;
     $$('.seg [data-mode]').forEach(b => b.classList.toggle('active', b.dataset.mode === m));
     $('#completeBtn').textContent = m === 'quotation' ? 'Save & print quotation' : 'Save & print bill';
+    $('#payField').hidden = m === 'quotation';
   }
 
   // Client-side checks for quick feedback. The server checks everything again.
@@ -1646,6 +1745,11 @@
       toast('Discount must be between ₹0 and the subtotal', 'error');
       return false;
     }
+    const paid = parseFloat($('#paidNow').value) || 0;
+    if (mode === 'invoice' && (paid < 0 || paid > t.total)) {
+      toast('Amount paid must be between ₹0 and the bill total', 'error');
+      return false;
+    }
     return true;
   }
 
@@ -1654,6 +1758,8 @@
 
     const isQuote = mode === 'quotation';
     const quoteId = isQuote ? null : pendingQuoteId;
+    const paidNow = isQuote ? 0 : (parseFloat($('#paidNow').value) || 0);
+    const payMethod = $('#payMethod').value;
     const payload = {
       p_type: isQuote ? 'quotation' : 'invoice',
       p_customer_name: $('#custName').value.trim() || WALK_IN,
@@ -1671,6 +1777,18 @@
     }, isQuote ? 'Saving quotation…' : 'Saving bill…');
 
     if (!saved) return;   // error already shown
+
+    // Record any payment taken at the counter. The bill is already saved at this point.
+    if (paidNow > 0) {
+      const paidOk = await run(async () => {
+        const { error } = await sb.rpc('record_payment', {
+          p_bill_id: saved.id, p_amount: paidNow, p_method: payMethod, p_note: null
+        });
+        if (error) throw error;
+        return true;
+      }, 'Recording payment…');
+      if (!paidOk) toast('Bill saved, but the payment was not recorded. Add it from the bill view.', 'error');
+    }
 
     // The document is saved at this point, so a failed reload must not look like a failed save.
     await run(loadProducts, 'Updating stock…');
@@ -1712,6 +1830,125 @@
           </td>
         </tr>`).join('')
       : `<tr><td colspan="7" class="empty">No quotations yet. Switch to Quotation above to create one.</td></tr>`;
+  }
+
+  // Records a payment against the open invoice
+  async function recordPayment(billId) {
+    const amount = parseFloat($('#payAmount').value);
+    const method = $('#payMethodModal').value;
+    if (!(amount > 0)) return toast('Enter the amount received', 'error');
+
+    const ok = await run(async () => {
+      const { error } = await sb.rpc('record_payment', {
+        p_bill_id: billId, p_amount: amount, p_method: method, p_note: null
+      });
+      if (error) throw error;
+      return true;
+    }, 'Recording payment…');
+    if (!ok) return;
+
+    toast('Payment recorded');
+    await openDocument(billId);
+    if (selectedCustomer) run(() => openCustomer(selectedCustomer), 'Refreshing customer…');
+  }
+
+  // Cancels the open invoice with a reason. Stock is restored and sales totals are reduced.
+  async function cancelCurrentBill(billId) {
+    const reason = $('#cancelReason').value.trim();
+    if (reason.length < 3) return toast('Enter a reason for cancelling (at least 3 characters)', 'error');
+    if (!confirm(`Cancel bill ${currentDoc.invoiceNo}? Its items return to stock and it is removed from sales totals.`)) return;
+
+    const ok = await run(async () => {
+      const { error } = await sb.rpc('cancel_bill', { p_bill_id: billId, p_reason: reason });
+      if (error) throw error;
+      return true;
+    }, 'Cancelling bill…');
+    if (!ok) return;
+
+    await run(loadProducts, 'Updating stock…');
+    toast('Bill cancelled and stock restored');
+    renderProducts();
+    renderCart();
+    await openDocument(billId);
+    if (selectedCustomer) run(() => openCustomer(selectedCustomer), 'Refreshing customer…');
+  }
+
+  /* ---------- Customers ---------- */
+  let selectedCustomer = null;
+
+  async function refreshCustomers() {
+    const q = $('#custSearch').value.trim();
+    const { data, error } = await sb.rpc('customer_summary', { p_search: q });
+    if (error) throw error;
+
+    $('#customerRows').innerHTML = data.length
+      ? data.map(c => `
+        <tr class="clickable ${c.customer_id === selectedCustomer ? 'selected' : ''}" data-customer="${esc(c.customer_id)}">
+          <td>${esc(c.name)}</td>
+          <td>${esc(c.mobile || '—')}</td>
+          <td class="num">${num(c.bill_count)}</td>
+          <td class="num">${money(c.total_spent)}</td>
+          <td class="num ${Number(c.outstanding) > 0 ? 'neg' : ''}">${money(c.outstanding)}</td>
+        </tr>`).join('')
+      : `<tr><td colspan="5" class="empty">No customers found. A customer is saved when a bill is made with a mobile number.</td></tr>`;
+  }
+
+  async function openCustomer(id) {
+    selectedCustomer = id;
+    const [cust, bills] = await Promise.all([
+      sb.from('customers').select('*').eq('id', id).single(),
+      sb.from('bills')
+        .select('id,invoice_no,bill_date,created_at,total,paid_amount,balance,status')
+        .eq('customer_id', id)
+        .eq('doc_type', 'invoice')
+        .order('created_at', { ascending: false })
+    ]);
+    if (cust.error) throw cust.error;
+    if (bills.error) throw bills.error;
+
+    const active = bills.data.filter(b => b.status === 'active');
+    const spent = active.reduce((a, b) => a + Number(b.total), 0);
+    const due = active.reduce((a, b) => a + Number(b.balance), 0);
+
+    $('#custTitle').textContent = cust.data.name;
+    $('#custInfo').innerHTML = `
+      <div class="summary-row"><span>Mobile</span><span>${esc(cust.data.mobile || '—')}</span></div>
+      <div class="summary-row"><span>GST number</span><span>${esc(cust.data.gstin || '—')}</span></div>
+      <div class="summary-row"><span>Total spent</span><span>${money(spent)}</span></div>
+      <div class="summary-row"><span>Outstanding dues</span><span class="${due > 0 ? 'neg' : ''}">${money(due)}</span></div>`;
+
+    $('#custBillRows').innerHTML = bills.data.length
+      ? bills.data.map(b => `
+        <tr class="clickable" data-reprint="${esc(b.id)}">
+          <td>${esc(b.invoice_no)}</td>
+          <td>${fmtDate(b.bill_date)} ${timeLabel(b.created_at)}</td>
+          <td class="num">${money(b.total)}</td>
+          <td class="num">${money(b.paid_amount)}</td>
+          <td class="num ${b.status === 'active' && Number(b.balance) > 0 ? 'neg' : ''}">${b.status === 'cancelled' ? '—' : money(b.balance)}</td>
+          <td>${b.status === 'cancelled' ? '<span class="neg">Cancelled</span>' : 'Active'}</td>
+        </tr>`).join('')
+      : `<tr><td colspan="6" class="empty">No bills for this customer yet.</td></tr>`;
+
+    $('#customerDetail').hidden = false;
+    $$('#customerRows tr').forEach(r => r.classList.toggle('selected', r.dataset.customer === id));
+  }
+
+  // Low-stock list on the dashboard: items at or below their reorder level
+  function renderLowStock() {
+    const list = cache.products
+      .filter(p => Number(p.reorder_level) > 0 && Number(p.stock_qty) <= Number(p.reorder_level))
+      .sort((a, b) => Number(a.stock_qty) - Number(b.stock_qty));
+    $('#lowStockCount').textContent = list.length ? `(${list.length})` : '';
+    $('#lowStockRows').innerHTML = list.length
+      ? list.map(p => `
+        <tr>
+          <td>${esc(p.product_code)}</td>
+          <td>${esc(p.name)}</td>
+          <td class="num neg">${num(p.stock_qty)}</td>
+          <td class="num">${num(p.reorder_level)}</td>
+          <td class="num"><b>${num(p.reorder_qty)}</b></td>
+        </tr>`).join('')
+      : `<tr><td colspan="5" class="empty">Nothing is at or below its reorder level.</td></tr>`;
   }
 
   async function quoteToBill(id) {
@@ -1787,6 +2024,11 @@
       customer: b.customer_name,
       mobile: b.customer_mobile || '',
       customerGst: b.customer_gstin || '',
+      paid: Number(b.paid_amount),
+      balance: Number(b.balance),
+      status: b.status,
+      cancelReason: b.cancel_reason,
+      cancelledAt: b.cancelled_at,
       totalQty: Number(b.total_qty),
       subtotal: Number(b.subtotal),
       discount: Number(b.discount),
@@ -1828,7 +2070,7 @@
             </div>
           </div>
           <div class="inv-doc">
-            <span class="inv-pill">${title}</span>
+            <span class="inv-pill">${title}${v.status === 'cancelled' ? ' · CANCELLED' : ''}</span>
             <div class="inv-no">${esc(v.invoiceNo)}</div>
           </div>
         </header>
@@ -1855,15 +2097,50 @@
             <div><span>Subtotal</span><span>${money(v.subtotal)}</span></div>
             ${v.discount > 0 ? `<div class="disc"><span>Discount</span><span>- ${money(v.discount)}</span></div>` : ''}
             <div class="grand"><span>Total</span><span>${money(v.total)}</span></div>
+            ${!v.isQuote && v.status !== 'cancelled' ? `<div><span>Paid</span><span>${money(v.paid)}</span></div><div><span>Balance due</span><span>${money(Math.max(0, v.balance))}</span></div>` : ''}
           </div>
         </div>
       </article>`;
   }
 
+  // Payment and cancel panel under an invoice on screen. It is never printed.
+  function paymentPanelHTML(v) {
+    if (v.isQuote) return '';
+    if (v.status === 'cancelled') {
+      const when = v.cancelledAt
+        ? ' on ' + new Date(v.cancelledAt).toLocaleDateString('en-IN', { timeZone: TZ })
+        : '';
+      return `<div class="pay-panel card">
+        <div class="neg" style="font-weight:600">This bill was cancelled${when}</div>
+        <div class="muted" style="margin-top:6px">Reason: ${esc(v.cancelReason || '—')}</div>
+      </div>`;
+    }
+    const due = Math.max(0, v.balance);
+    return `<div class="pay-panel card">
+      <div class="summary-row"><span>Paid so far</span><span>${money(v.paid)}</span></div>
+      <div class="summary-row total" style="font-size:17px"><span>Balance due</span><span class="${due > 0 ? 'neg' : ''}">${money(due)}</span></div>
+      ${due > 0 ? `
+        <div class="input-action" style="margin-top:12px">
+          <input id="payAmount" type="number" min="0.01" step="0.01" max="${due}" placeholder="Amount received">
+          <select id="payMethodModal" class="method-select">
+            <option value="cash">Cash</option>
+            <option value="upi">UPI</option>
+            <option value="card">Card</option>
+            <option value="other">Other</option>
+          </select>
+          <button type="button" class="btn" id="payBtn">Record payment</button>
+        </div>` : '<div class="muted" style="margin-top:10px">Fully paid.</div>'}
+      <div class="input-action" style="margin-top:14px">
+        <input id="cancelReason" type="text" maxlength="120" placeholder="Reason for cancelling this bill">
+        <button type="button" class="btn danger" id="cancelBillBtn">Cancel bill</button>
+      </div>
+    </div>`;
+  }
+
   function openInvoice(view) {
     currentDoc = view;
     $('#invTitle').textContent = `${view.isQuote ? 'Quotation' : 'Bill'} ${view.invoiceNo}`;
-    $('#invoiceBody').innerHTML = invoiceHTML(view);
+    $('#invoiceBody').innerHTML = invoiceHTML(view) + paymentPanelHTML(view);
     $('#invoiceModal').classList.add('show');
   }
 
@@ -1896,6 +2173,7 @@
      Dashboard
      ===================================================================== */
   // Bill search: accepts "INV-00012", "QTN-00003" or just the number "12"
+  // (renderLowStock is defined below and is called from loadProducts)
   async function searchBill() {
     const raw = $('#billSearchInput').value.trim().toUpperCase();
     if (!raw) return toast('Type a bill number', 'error');
@@ -2026,6 +2304,7 @@
       sb.from('bills')
         .select('id,invoice_no,created_at,customer_name,total_qty,total')
         .eq('doc_type', 'invoice')
+        .eq('status', 'active')
         .eq('bill_date', today)
         .order('created_at', { ascending: false })
     ]);
@@ -2117,6 +2396,7 @@
     const { data, error } = await sb.from('bills')
       .select('id,invoice_no,created_at,customer_name,total_qty,total,profit')
       .eq('doc_type', 'invoice')
+      .eq('status', 'active')
       .eq('bill_date', day)
       .order('created_at');
     if (error) throw error;
@@ -2261,13 +2541,14 @@
     await run(async () => {
       if (type === 'bills') {
         const rows = await fetchAll(() => sb.from('bills')
-          .select('invoice_no,bill_date,created_at,customer_name,customer_mobile,total_qty,subtotal,discount,total,cost,profit')
+          .select('invoice_no,bill_date,created_at,customer_name,customer_mobile,total_qty,subtotal,discount,total,cost,profit,status,paid_amount,balance')
           .eq('doc_type', 'invoice').order('id'));
         downloadFile(`bills-${d}.csv`, toCSV(
-          ['Invoice', 'Date', 'Time', 'Customer', 'Mobile', 'Quantity', 'Subtotal', 'Discount', 'Total', 'Buying cost', 'Profit'],
+          ['Invoice', 'Date', 'Time', 'Customer', 'Mobile', 'Quantity', 'Subtotal', 'Discount', 'Total', 'Buying cost', 'Profit', 'Paid', 'Balance', 'Status'],
           rows.map(b => [
             b.invoice_no, fmtDate(b.bill_date), timeLabel(b.created_at), b.customer_name, b.customer_mobile || '',
-            b.total_qty, round2(b.subtotal), round2(b.discount), round2(b.total), round2(b.cost), round2(b.profit)
+            b.total_qty, round2(b.subtotal), round2(b.discount), round2(b.total), round2(b.cost), round2(b.profit),
+            round2(b.paid_amount), round2(b.balance), b.status === 'cancelled' ? 'Cancelled' : 'Active'
           ])), 'text/csv');
       } else if (type === 'items') {
         const rows = await fetchAll(() => sb.from('bill_items')
@@ -2364,6 +2645,12 @@
     const quoteDel = e.target.closest('[data-quote-delete]');
     if (quoteDel) return deleteQuote(quoteDel.dataset.quoteDelete);
 
+    if (e.target.closest('#payBtn')) return recordPayment(currentDoc.id);
+    if (e.target.closest('#cancelBillBtn')) return cancelCurrentBill(currentDoc.id);
+
+    const custRow = e.target.closest('tr[data-customer]');
+    if (custRow) return run(() => openCustomer(custRow.dataset.customer), 'Loading customer…');
+
     const dayRow = e.target.closest('tr[data-day]');
     if (dayRow && grain === 'day') {
       selectedDay = dayRow.dataset.day;
@@ -2381,6 +2668,17 @@
 
   // Products
   $('#billSearchBtn').addEventListener('click', searchBill);
+
+  let custTimer = null;
+  $('#custSearch').addEventListener('input', () => {
+    clearTimeout(custTimer);
+    custTimer = setTimeout(() => run(refreshCustomers, 'Searching…'), 300);
+  });
+  $('#custClose').addEventListener('click', () => {
+    selectedCustomer = null;
+    $('#customerDetail').hidden = true;
+    $$('#customerRows tr').forEach(r => r.classList.remove('selected'));
+  });
   $('#billSearchInput').addEventListener('keydown', e => {
     if (e.key === 'Enter') { e.preventDefault(); searchBill(); }
   });

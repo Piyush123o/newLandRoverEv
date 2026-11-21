@@ -434,6 +434,15 @@
         <div class="card stat"><div class="label">Buying cost of items sold</div><div class="value" id="dCost">₹0.00</div></div>
       </div>
 
+      <div class="card section-gap">
+        <h2>Search bill</h2>
+        <div class="input-action" style="max-width:520px">
+          <input id="billSearchInput" type="text" placeholder="Bill number, e.g. INV-00012 or 12" autocomplete="off">
+          <button type="button" class="btn" id="billSearchBtn">Search</button>
+        </div>
+        <p class="hint" style="margin:10px 0 0">Opens the bill to view or print. Quotation numbers (QTN-) work too.</p>
+      </div>
+
       <div class="card section-gap db-card">
         <div>
           <div class="db-status"><span class="dot" id="dbDot"></span><span id="dbStatusText">Checking connection…</span></div>
@@ -1886,6 +1895,29 @@
   /* =====================================================================
      Dashboard
      ===================================================================== */
+  // Bill search: accepts "INV-00012", "QTN-00003" or just the number "12"
+  async function searchBill() {
+    const raw = $('#billSearchInput').value.trim().toUpperCase();
+    if (!raw) return toast('Type a bill number', 'error');
+    const candidates = /^\d+$/.test(raw)
+      ? [`INV-${raw.padStart(5, '0')}`, `QTN-${raw.padStart(5, '0')}`]
+      : [raw];
+
+    const found = await run(async () => {
+      const { data, error } = await sb.from('bills')
+        .select('id,invoice_no')
+        .in('invoice_no', candidates)
+        .limit(1);
+      if (error) throw error;
+      return data;
+    }, 'Searching…');
+
+    if (!found) return;   // error already shown
+    if (!found.length) return toast(`No bill found for "${raw}"`, 'error');
+    $('#billSearchInput').value = '';
+    await openDocument(found[0].id);
+  }
+
   // Connection status and database size. Errors are shown in the card and never block the dashboard.
   const fmtBytes = b => (b >= 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.max(0, Math.round(b / 1024)) + ' KB');
 
@@ -1900,7 +1932,7 @@
                 stroke-dasharray="${C}" stroke-dashoffset="${C * (1 - pct / 100)}"/>
       </svg>
       <div class="donut-center"><b>${pct.toFixed(1)}%</b><span>used</span></div>`;
-    $('#dbUsage').textContent = `Database size: ${fmtBytes(used)} of ${fmtBytes(limit)}`;
+    if (limit) $('#dbUsage').textContent = `Database size: ${fmtBytes(used)} of ${fmtBytes(limit)}`;
   }
 
   async function refreshDbStatus() {
@@ -1918,8 +1950,9 @@
       $('#dbMeta').textContent = `Response time ${ms} ms`;
 
       if (usage.error || !usage.data || !usage.data.length) {
-        $('#dbUsage').textContent = 'Database size unavailable';
         renderDonut(0, 0);
+        const reason = usage.error ? usage.error.message : 'no data returned';
+        $('#dbUsage').textContent = `Database size unavailable (${reason}). Run the database_usage SQL in Supabase.`;
       } else {
         renderDonut(Number(usage.data[0].size_bytes), Number(usage.data[0].limit_bytes));
       }
@@ -2347,6 +2380,10 @@
   });
 
   // Products
+  $('#billSearchBtn').addEventListener('click', searchBill);
+  $('#billSearchInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); searchBill(); }
+  });
   $('#pSubmit').addEventListener('click', saveProduct);
   $('#pCancel').addEventListener('click', resetProductForm);
   $('#pBuy').addEventListener('input', updateProductPreview);

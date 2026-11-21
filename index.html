@@ -590,6 +590,7 @@
             <label for="paidNow">Paid now (₹) · leave empty for credit</label>
             <div class="input-action">
               <input id="paidNow" type="number" min="0" step="0.01" placeholder="0.00">
+              <button type="button" class="btn ghost" id="fullPaidBtn" title="Fill the full bill total as paid" style="padding:6px 10px;white-space:nowrap">Full paid</button>
               <select id="payMethod" class="method-select">
                 <option value="cash">Cash</option>
                 <option value="upi">UPI</option>
@@ -1719,6 +1720,14 @@
     hideSuggest();
     renderCart();
   }
+
+  // "Full paid": fill the paid-now box with the whole bill total.
+  document.addEventListener('click', e => {
+    if (!e.target.closest('#fullPaidBtn')) return;
+    const total = totals().total;
+    $('#paidNow').value = total > 0 ? total.toFixed(2) : '';
+    $('#paidNow').focus();
+  });
 
   function setMode(m) {
     mode = m;

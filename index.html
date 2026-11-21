@@ -156,6 +156,16 @@
   .modal-body{overflow:auto;padding:16px;background:var(--panel)}
   .modal-actions{display:flex;gap:8px;justify-content:flex-end;padding:12px 16px;border-top:1px solid var(--line);flex-wrap:wrap}
 
+  /* Scanner laser and success flash */
+  .scan-laser{display:none;position:absolute;left:14%;right:14%;top:22%;height:2px;border-radius:2px;
+    background:linear-gradient(90deg,transparent,#ff3b30 20%,#ff3b30 80%,transparent);
+    box-shadow:0 0 12px 2px rgba(255,59,48,.55);pointer-events:none;z-index:2;
+    animation:laser 2.2s ease-in-out infinite}
+  .scan-frame.live .scan-laser{display:block}
+  @keyframes laser{0%{top:22%}50%{top:76%}100%{top:22%}}
+  .scan-frame.hit::after{border-color:#22c55e;box-shadow:0 0 0 999px rgba(0,0,0,.28), 0 0 26px rgba(34,197,94,.75)}
+  .scan-frame::after{transition:border-color .15s, box-shadow .15s}
+
   /* Glass accents: only on stat cards and the billing summary */
   .stats{
     padding:14px;border-radius:16px;
@@ -699,7 +709,7 @@
       <button type="button" class="icon-btn" id="scanClose" aria-label="Close scanner">&times;</button>
     </div>
     <div class="modal-body">
-      <div class="scan-frame"><video id="scanVideo" playsinline muted></video></div>
+      <div class="scan-frame"><video id="scanVideo" playsinline muted></video><div class="scan-laser"></div></div>
       <p class="scan-status" id="scanStatus" role="status"></p>
       <div class="scan-manual">
         <input id="scanManual" type="text" inputmode="numeric" placeholder="Or type the barcode number">
@@ -825,6 +835,48 @@
     window.scrollTo(0, 0);
   }
 
+  /* ---------- Scan feedback: sound and frame flash ---------- */
+  let audioCtx = null;
+
+  // Browsers only allow sound after a user action, so create the audio context on clicks
+  function unlockAudio() {
+    try {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+    } catch (e) { /* audio not available */ }
+  }
+
+  // ok: two rising tones. Not ok: one low tone.
+  function playBeep(ok) {
+    try {
+      unlockAudio();
+      if (!audioCtx) return;
+      const t0 = audioCtx.currentTime;
+      const notes = ok ? [[1900, 0, 0.08], [2600, 0.08, 0.1]] : [[220, 0, 0.22]];
+      notes.forEach(([freq, start, len]) => {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = ok ? 'sine' : 'sawtooth';
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.0001, t0 + start);
+        gain.gain.exponentialRampToValueAtTime(ok ? 0.22 : 0.12, t0 + start + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t0 + start + len);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(t0 + start);
+        osc.stop(t0 + start + len + 0.02);
+      });
+    } catch (e) { /* ignore */ }
+  }
+
+  function flashScanFrame() {
+    const frame = $('.scan-frame');
+    frame.classList.remove('hit');
+    void frame.offsetWidth; // restart the transition
+    frame.classList.add('hit');
+    setTimeout(() => frame.classList.remove('hit'), 350);
+  }
+
   /* ---------- Barcode scanner ---------- */
   const BARCODE_FORMATS = ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'itf', 'qr_code'];
   const ZXING_URL = 'https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js';
@@ -892,6 +944,7 @@
     const video = $('#scanVideo');
     video.srcObject = null;
     $('#scanModal').classList.remove('show');
+    $('.scan-frame').classList.remove('live', 'hit');
   }
 
   function runNativeDetector(video, detector) {
@@ -920,6 +973,7 @@
   }
 
   async function startScanner(title, onCode, continuous = false) {
+    unlockAudio();
     Object.assign(scan, { active: true, onCode, continuous, last: '', lastAt: 0, stream: null, reader: null });
     $('#scanTitle').textContent = title;
     $('#scanManual').value = '';
@@ -949,6 +1003,7 @@
     }
 
     scan.stream = stream;
+    $('.scan-frame').classList.add('live');
     const video = $('#scanVideo');
     video.srcObject = stream;
     try { await video.play(); } catch (e) { /* autoplay handled by playsinline */ }
@@ -1080,6 +1135,7 @@
       return;
     }
     $('#pBarcode').value = code;
+    playBeep(true);
     toast('Barcode captured');
   }
 
@@ -1236,11 +1292,14 @@
   function billingScan(code) {
     const p = findByBarcode(code);
     if (!p) {
+      playBeep(false);
       toast(`No product has barcode ${code}`, 'error');
       return `Unknown barcode ${code}. Add it on the Products page.`;
     }
     addProductToCart(p, 1);
     flashCartRow(p.id);
+    playBeep(true);
+    flashScanFrame();
     setScanStatus('Scan the next item or tap Finish', p.name);
     return '';
   }

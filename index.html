@@ -3,10 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://cdn.jsdelivr.net; img-src 'self' data: blob:; media-src 'self' blob:; worker-src 'self' blob:">
 <title>Electronic Shop · Billing & Sales</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <style>
   :root{
     --bg:#ffffff;
@@ -44,6 +47,7 @@
   .nav button.active{background:var(--text);color:#fff}
   .nav svg{width:18px;height:18px;flex:none}
   .sidebar-foot{margin-top:auto;padding:0 10px;color:var(--muted);font-size:12px}
+  .sidebar-user{word-break:break-all;margin-bottom:8px}
 
   main{padding:28px 32px 56px;min-width:0}
   .page{display:none}
@@ -69,7 +73,7 @@
   /* Forms */
   .field{display:flex;flex-direction:column;min-width:0}
   label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px;font-weight:500}
-  input[type=text],input[type=number],input[type=tel]{
+  input[type=text],input[type=email],input[type=password],input[type=number],input[type=tel]{
     width:100%;padding:10px 12px;border:1px solid #d4d4d4;border-radius:8px;background:#fff;outline:none;min-width:0;
   }
   input:focus{border-color:var(--text);box-shadow:0 0 0 3px rgba(0,0,0,.07)}
@@ -98,6 +102,7 @@
   .btn.danger:hover{background:#fdf3f2;opacity:1}
   .btn.small{padding:6px 10px;font-size:13px}
   .btn.full{width:100%;margin-top:10px}
+  .btn:disabled{opacity:.4;cursor:not-allowed}
   .icon-btn{
     background:#fff;border:1px solid var(--line);border-radius:6px;width:30px;height:30px;cursor:pointer;
     font-size:18px;line-height:1;display:inline-flex;align-items:center;justify-content:center;flex:none;
@@ -133,7 +138,6 @@
   .suggest small{color:var(--muted);margin-left:6px}
   .suggest .none{color:var(--muted);cursor:default}
   .suggest .none:hover{background:none}
-  .qty-input{width:72px;padding:6px 8px;border:1px solid #d4d4d4;border-radius:6px;text-align:right;font-variant-numeric:tabular-nums}
   .summary{position:sticky;top:20px}
   .summary-row{display:flex;justify-content:space-between;gap:12px;padding:7px 0;color:var(--muted);font-variant-numeric:tabular-nums}
   .summary-row span:last-child{color:var(--text)}
@@ -195,26 +199,20 @@
   .stepper{display:inline-flex;align-items:center;gap:4px;justify-content:flex-end}
   .step-btn{width:30px;height:30px;border:1px solid #cfcfcf;background:#fff;border-radius:6px;cursor:pointer;font-size:16px;line-height:1;color:var(--text)}
   .step-btn:hover{background:#f2f2f2}
+  .qty-input{width:72px;padding:6px 8px;border:1px solid #d4d4d4;border-radius:6px;text-align:right;font-variant-numeric:tabular-nums}
   #cartRows .qty-input{width:56px;text-align:center}
 
   /* Settings */
   .settings-grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));align-items:start}
   .stack-btns{display:flex;flex-direction:column;gap:8px}
   .stack-btns .btn{width:100%}
-  .import-box{margin-top:14px;padding:14px;border:1px solid var(--line);border-radius:8px;background:var(--panel)}
-  .radio{display:flex;gap:8px;align-items:flex-start;color:var(--text);font-size:14px;margin:8px 0;cursor:pointer;margin-bottom:0}
-  .radio input{margin-top:4px}
-  .radio small{display:block;color:var(--muted);font-size:12px}
-  .import-actions{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
-  #importFile{width:100%;font-size:14px;color:var(--muted)}
 
-  /* Document type switch */
+  /* Document type & report switches */
   .seg{display:inline-flex;border:1px solid #cfcfcf;border-radius:8px;overflow:hidden;align-self:flex-start}
   .seg button{background:#fff;border:0;padding:8px 14px;cursor:pointer;color:var(--muted);font-weight:500}
   .seg button+button{border-left:1px solid #cfcfcf}
   .seg button.active{background:var(--text);color:#fff}
   .doc-actions{display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap}
-  .btn:disabled{opacity:.4;cursor:not-allowed}
 
   /* Scanner */
   .scan-frame{position:relative;background:#111;border-radius:10px;overflow:hidden;aspect-ratio:4/3}
@@ -281,6 +279,18 @@
   .toast{background:#111;color:#fff;padding:10px 14px;border-radius:8px;font-size:14px;box-shadow:0 8px 20px rgba(0,0,0,.18)}
   .toast.error{background:var(--danger)}
 
+  /* Loader and sign-in */
+  #loader{position:fixed;inset:0;background:rgba(255,255,255,.6);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;z-index:300}
+  .spinner{width:34px;height:34px;border:3px solid #ddd;border-top-color:#111;border-radius:50%;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  #loaderText{color:var(--muted);font-size:14px}
+  #authView{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:linear-gradient(135deg,#e8eef6 0%,#f7f3ee 50%,#e6f1ea 100%)}
+  .auth-card{width:100%;max-width:380px;padding:28px}
+  .auth-card .brand{padding:0}
+  .auth-card form{display:flex;flex-direction:column;gap:12px;margin-top:20px}
+  .auth-error{color:var(--danger);font-size:13px;min-height:1.2em}
+  .db-host{font-size:13px;word-break:break-all;color:var(--muted)}
+
   /* Responsive */
   @media (max-width:1080px){
     .bill-layout{grid-template-columns:1fr}
@@ -327,7 +337,33 @@
 </head>
 <body>
 
-<div class="app">
+<!-- Loading overlay -->
+<div id="loader" hidden role="status" aria-live="polite">
+  <div class="spinner"></div>
+  <div id="loaderText">Working…</div>
+</div>
+
+<!-- Sign in -->
+<section id="authView" hidden>
+  <div class="card auth-card">
+    <div class="brand">Electronic Shop<small>Admin sign in</small></div>
+    <form id="loginForm" novalidate>
+      <div class="field">
+        <label for="loginEmail">Email</label>
+        <input id="loginEmail" type="email" autocomplete="username" required>
+      </div>
+      <div class="field">
+        <label for="loginPassword">Password</label>
+        <input id="loginPassword" type="password" autocomplete="current-password" required>
+      </div>
+      <div class="auth-error" id="loginError" role="alert"></div>
+      <button type="submit" class="btn full" id="loginSubmit" style="margin-top:0">Sign in</button>
+    </form>
+  </div>
+</section>
+
+<!-- App -->
+<div class="app" id="appView" hidden>
 
   <aside class="sidebar">
     <div class="brand">Electronic Shop<small>Billing & sales</small></div>
@@ -353,7 +389,10 @@
         <span>Settings</span>
       </button>
     </nav>
-    <div class="sidebar-foot">Data is saved in this browser.</div>
+    <div class="sidebar-foot">
+      <div class="sidebar-user" id="sideUser"></div>
+      <button type="button" class="btn ghost small" id="logoutBtn" style="width:100%">Sign out</button>
+    </div>
   </aside>
 
   <main>
@@ -454,7 +493,7 @@
               <button type="button" class="btn ghost" id="billScanBtn">Scan barcode</button>
               <button type="button" class="btn add-btn" id="addBtn">Add to bill</button>
             </div>
-            <p class="hint" style="margin:10px 0 0">A USB or Bluetooth barcode scanner works here too. Scan an item and it is added to the bill.</p>
+            <p class="hint" style="margin:10px 0 0">A USB or Bluetooth barcode scanner works here too. Scan an item and it is added to the bill. Items out of stock cannot be added.</p>
           </div>
 
           <div class="card">
@@ -538,6 +577,10 @@
             </div>
           </div>
           <div class="field">
+            <label for="pStock">Stock quantity</label>
+            <input id="pStock" type="number" min="0" step="1" value="0">
+          </div>
+          <div class="field">
             <label for="pBuy">Buying price (₹)</label>
             <input id="pBuy" type="number" min="0" step="0.01" placeholder="0.00">
           </div>
@@ -568,6 +611,7 @@
                 <th>Product ID</th>
                 <th>Barcode</th>
                 <th>Name</th>
+                <th class="num">Stock</th>
                 <th class="num">Buying price</th>
                 <th class="num">Selling price</th>
                 <th class="num">Profit / unit</th>
@@ -580,73 +624,17 @@
       </div>
     </section>
 
-    <!-- SETTINGS -->
-    <section class="page" id="page-settings">
-      <div class="page-head">
-        <div>
-          <h1>Settings</h1>
-          <p class="sub">Back up your data, move it to another computer, or restore it.</p>
-        </div>
-      </div>
-
-      <div class="settings-grid">
-        <div class="card">
-          <h2>Export data</h2>
-          <p class="hint">A JSON backup contains everything and can be imported again. The CSV files open in Excel or Google Sheets.</p>
-          <div class="stack-btns">
-            <button type="button" class="btn" data-export="json">Download full backup (JSON)</button>
-            <button type="button" class="btn ghost" data-export="bills">Bills (CSV)</button>
-            <button type="button" class="btn ghost" data-export="items">Bill items, line by line (CSV)</button>
-            <button type="button" class="btn ghost" data-export="products">Products (CSV)</button>
-            <button type="button" class="btn ghost" data-export="quotations">Quotations (CSV)</button>
-          </div>
-        </div>
-
-        <div class="card">
-          <h2>Import data</h2>
-          <p class="hint">Choose a JSON backup made by this app. You will see a summary before anything changes.</p>
-          <input id="importFile" type="file" accept=".json,application/json">
-
-          <div class="import-box" id="importPreview" hidden>
-            <div class="summary-row"><span>File</span><span id="ipName"></span></div>
-            <div class="summary-row"><span>Products</span><span id="ipProducts"></span></div>
-            <div class="summary-row"><span>Bills</span><span id="ipBills"></span></div>
-            <div class="summary-row"><span>Quotations</span><span id="ipQuotes"></span></div>
-
-            <div style="margin-top:12px">
-              <label class="radio">
-                <input type="radio" name="importMode" value="merge" checked>
-                <span>Merge<small>Add records that are not already here. Existing records stay as they are.</small></span>
-              </label>
-              <label class="radio">
-                <input type="radio" name="importMode" value="replace">
-                <span>Replace<small>Delete the current data and use the file instead.</small></span>
-              </label>
-            </div>
-
-            <div class="import-actions">
-              <button type="button" class="btn" id="importRun">Import</button>
-              <button type="button" class="btn ghost" id="importCancel">Cancel</button>
-            </div>
-          </div>
-        </div>
-
-        <div class="card">
-          <h2>Stored data</h2>
-          <div class="summary-row"><span>Products</span><span id="stProducts">0</span></div>
-          <div class="summary-row"><span>Bills</span><span id="stBills">0</span></div>
-          <div class="summary-row"><span>Quotations</span><span id="stQuotes">0</span></div>
-          <p class="hint" style="margin-top:14px">Data is stored only in this browser on this computer. Export a backup regularly, and before clearing browser data.</p>
-        </div>
-      </div>
-    </section>
-
     <!-- REPORTS -->
     <section class="page" id="page-reports">
       <div class="page-head">
         <div>
           <h1>Sales Reports</h1>
-          <p class="sub">Daily totals across all bills. Select a day to see its bills.</p>
+          <p class="sub" id="reportSub">Totals of saved invoices. Select a day to see its bills.</p>
+        </div>
+        <div class="seg" role="group" aria-label="Report period">
+          <button type="button" data-grain="day" class="active">Daily</button>
+          <button type="button" data-grain="month">Monthly</button>
+          <button type="button" data-grain="year">Yearly</button>
         </div>
       </div>
 
@@ -658,17 +646,17 @@
       </div>
 
       <div class="card section-gap">
-        <h2>Revenue and profit, last 14 days</h2>
+        <h2 id="chartTitle">Revenue and profit, last 14 days</h2>
         <div class="chart" id="chart14"></div>
       </div>
 
       <div class="card section-gap">
-        <h2>Daily sales history</h2>
+        <h2>Sales history</h2>
         <div class="table-wrap">
           <table>
             <thead>
               <tr>
-                <th>Date</th>
+                <th id="periodHead">Date</th>
                 <th class="num">Bills</th>
                 <th class="num">Products sold</th>
                 <th class="num">Revenue</th>
@@ -701,6 +689,50 @@
             </thead>
             <tbody id="dayRows"></tbody>
           </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section class="page" id="page-settings">
+      <div class="page-head">
+        <div>
+          <h1>Settings</h1>
+          <p class="sub">Account, database connection and exports.</p>
+        </div>
+      </div>
+
+      <div class="settings-grid">
+        <div class="card">
+          <h2>Account</h2>
+          <div class="summary-row"><span>Signed in as</span><span id="accountEmail" style="word-break:break-all;text-align:right"></span></div>
+          <p class="hint" style="margin-top:14px">Your session stays signed in on this computer. Sign out on shared computers.</p>
+          <div class="stack-btns">
+            <button type="button" class="btn ghost" id="settingsSignOut">Sign out</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Database</h2>
+          <p class="db-host" id="dbHost"></p>
+          <div class="summary-row" style="margin-top:12px"><span>Products</span><span id="stProducts">0</span></div>
+          <div class="summary-row"><span>Customers</span><span id="stCustomers">0</span></div>
+          <div class="summary-row"><span>Invoices</span><span id="stBills">0</span></div>
+          <div class="summary-row"><span>Quotations</span><span id="stQuotes">0</span></div>
+          <p class="hint" style="margin-top:14px">All data is stored in your Supabase database. Only signed-in admins can access it.</p>
+        </div>
+
+        <div class="card">
+          <h2>Export data</h2>
+          <p class="hint">The CSV files open in Excel or Google Sheets. The JSON file is a full copy of your data.</p>
+          <div class="stack-btns">
+            <button type="button" class="btn" data-export="json">Download full backup (JSON)</button>
+            <button type="button" class="btn ghost" data-export="bills">Bills (CSV)</button>
+            <button type="button" class="btn ghost" data-export="items">Bill items, line by line (CSV)</button>
+            <button type="button" class="btn ghost" data-export="products">Products (CSV)</button>
+            <button type="button" class="btn ghost" data-export="quotations">Quotations (CSV)</button>
+            <button type="button" class="btn ghost" data-export="sales">Daily sales summary (CSV)</button>
+          </div>
         </div>
       </div>
     </section>
@@ -751,82 +783,67 @@
 (() => {
   'use strict';
 
-  /* ---------- Storage ---------- */
-  const STORE_KEY = 'eshop_billing_v1';
+  /* =====================================================================
+     Configuration and constants
+     ===================================================================== */
+  const CFG = window.APP_CONFIG || {};
+  const TZ = 'Asia/Kolkata';
+  const WALK_IN = 'Walk-in Customer';
+  const GSTIN_RE = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
+  const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const configOk = !!(CFG.SUPABASE_URL && CFG.SUPABASE_PUBLISHABLE_KEY)
+    && !/YOUR[-_]/i.test(CFG.SUPABASE_URL + CFG.SUPABASE_PUBLISHABLE_KEY);
 
-  const defaultState = () => ({
-    products: [],
-    bills: [],
-    quotes: [],
-    meta: {
-      productSeq: 0,
-      invoiceSeq: 0,
-      quoteSeq: 0,
-      shop: { name: '', phone: '', address: '', gst: '' }
-    }
-  });
-
-  function loadState() {
-    try {
-      const raw = localStorage.getItem(STORE_KEY);
-      if (!raw) return defaultState();
-      const s = JSON.parse(raw);
-      const d = defaultState();
-      return {
-        products: Array.isArray(s.products)
-          ? s.products.map(p => ({ barcode: '', ...p }))
-          : [],
-        bills: Array.isArray(s.bills) ? s.bills : [],
-        quotes: Array.isArray(s.quotes) ? s.quotes : [],
-        meta: {
-          ...d.meta,
-          ...(s.meta || {}),
-          shop: { ...d.meta.shop, ...((s.meta && s.meta.shop) || {}) }
-        }
-      };
-    } catch (err) {
-      console.error('Could not read saved data', err);
-      return defaultState();
-    }
-  }
-
-  let state = loadState();
-
-  function persist() {
-    try {
-      localStorage.setItem(STORE_KEY, JSON.stringify(state));
-    } catch (err) {
-      console.error(err);
-      toast('Could not save data. Browser storage may be full or blocked.', 'error');
-    }
-  }
-
-  /* ---------- Helpers ---------- */
+  /* =====================================================================
+     Helpers
+     ===================================================================== */
   const $ = (sel, root = document) => root.querySelector(sel);
   const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
-
-  const inr = new Intl.NumberFormat('en-IN', {
-    style: 'currency', currency: 'INR', minimumFractionDigits: 2, maximumFractionDigits: 2
-  });
-  const money = n => inr.format(Number(n) || 0);
-  const num = n => (Number(n) || 0).toLocaleString('en-IN');
-  const sumBy = (arr, fn) => arr.reduce((acc, x) => acc + fn(x), 0);
-
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => (
     { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
   ));
+  const inr = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const money = n => inr.format(Number(n) || 0);
+  const num = n => (Number(n) || 0).toLocaleString('en-IN');
+  const round2 = n => Math.round((Number(n) || 0) * 100) / 100;
 
-  const dayKey = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  const todayKey = () => dayKey(new Date());
-  const fmtDate = k => { const [y, m, d] = k.split('-'); return `${d}/${m}/${y}`; };
-  const fmtShort = k => { const [, m, d] = k.split('-'); return `${d}/${m}`; };
-  const timeLabel = d => d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
-
+  // Dates are handled in India time, the same timezone the server uses for bill dates.
+  const dayFmt = new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' });
+  const todayKey = () => dayFmt.format(new Date());
+  function shiftKey(key, n) {
+    const [y, m, d] = key.split('-').map(Number);
+    return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10);
+  }
   function lastNDays(n) {
+    const t = todayKey();
+    return Array.from({ length: n }, (_, i) => shiftKey(t, i - (n - 1)));
+  }
+  const timeLabel = iso => new Date(iso).toLocaleTimeString('en-IN', { timeZone: TZ, hour: '2-digit', minute: '2-digit' });
+  const dateTimeNow = () => new Date().toLocaleString('en-IN', {
+    timeZone: TZ, day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
+  });
+  const fmtDate = k => { const [y, m, d] = k.split('-'); return `${d}/${m}/${y}`; };
+  const chartLabel = (key, grain) => {
+    const [y, m, d] = key.split('-');
+    if (grain === 'year') return y;
+    if (grain === 'month') return `${MON[Number(m) - 1]} ${y.slice(2)}`;
+    return `${d}/${m}`;
+  };
+  const tableLabel = (key, grain) => {
+    const [y, m] = key.split('-');
+    if (grain === 'year') return y;
+    if (grain === 'month') return `${MON[Number(m) - 1]} ${y}`;
+    return fmtDate(key);
+  };
+
+  // PostgREST returns at most 1000 rows per request, so read in pages.
+  async function fetchAll(makeQuery) {
     const out = [];
-    const now = new Date();
-    for (let i = n - 1; i >= 0; i--) {
-      out.push(dayKey(new Date(now.getFullYear(), now.getMonth(), now.getDate() - i)));
+    for (let from = 0; ; from += 1000) {
+      const { data, error } = await makeQuery().range(from, from + 999);
+      if (error) throw error;
+      out.push(...data);
+      if (data.length < 1000) break;
     }
     return out;
   }
@@ -836,31 +853,160 @@
     el.className = 'toast' + (type === 'error' ? ' error' : '');
     el.textContent = msg;
     $('#toasts').appendChild(el);
-    setTimeout(() => el.remove(), 2800);
+    setTimeout(() => el.remove(), 3200);
   }
 
-  function findByBarcode(code) {
-    const c = String(code || '').trim();
-    if (!c) return null;
-    return state.products.find(p => p.barcode && p.barcode === c) || null;
+  function friendlyError(err) {
+    const msg = (err && err.message) || '';
+    if (/Failed to fetch|NetworkError|Load failed/i.test(msg)) {
+      return 'Cannot reach the server. Check your internet connection and try again.';
+    }
+    if (/JWT|expired/i.test(msg)) return 'Your session has expired. Please sign in again.';
+    if (err && err.code === '42501') return 'Your account is not authorized for this action.';
+    return msg || 'Something went wrong. Please try again.';
   }
 
-  /* ---------- Navigation ---------- */
+  function friendlyAuthError(err) {
+    const msg = (err && err.message) || '';
+    if (/Invalid login credentials/i.test(msg)) return 'Email or password is incorrect.';
+    if (/Email not confirmed/i.test(msg)) return 'Please confirm your email address first.';
+    return friendlyError(err);
+  }
+
+  /* =====================================================================
+     Loading indicator and error-safe actions
+     ===================================================================== */
+  let busy = 0;
+  function setBusy(delta, text) {
+    busy = Math.max(0, busy + delta);
+    if (delta > 0 && text) $('#loaderText').textContent = text;
+    $('#loader').hidden = busy === 0;
+  }
+
+  // Runs an async task with the loader on. Errors become a toast; returns undefined on failure.
+  async function run(task, text = 'Working…') {
+    setBusy(1, text);
+    try {
+      return await task();
+    } catch (err) {
+      console.error(err);
+      toast(friendlyError(err), 'error');
+      return undefined;
+    } finally {
+      setBusy(-1);
+    }
+  }
+
+  /* =====================================================================
+     Supabase client, session and admin check
+     ===================================================================== */
+  let sb = null;
+  let session = null;
+  const cache = {
+    products: [],
+    shop: { name: '', phone: '', address: '', gstin: '' }
+  };
+  let quoteList = [];
+
+  function showLogin(msg) {
+    session = null;
+    $('#appView').hidden = true;
+    $('#authView').hidden = false;
+    $('#loginPassword').value = '';
+    $('#loginSubmit').disabled = !sb;
+    if (msg !== undefined) $('#loginError').textContent = msg;
+  }
+
+  // Only accounts listed in public.admins may use the app.
+  async function enterApp(s) {
+    const { data: isAdmin, error } = await sb.rpc('is_admin');
+    if (error) throw error;
+    if (!isAdmin) {
+      await sb.auth.signOut();
+      throw new Error('This account is not authorized for the admin panel.');
+    }
+    session = s;
+    $('#sideUser').textContent = s.user.email || '';
+    $('#authView').hidden = true;
+    $('#appView').hidden = false;
+  }
+
+  async function startSession(s) {
+    setBusy(1, 'Checking access…');
+    try {
+      await enterApp(s);
+    } catch (err) {
+      console.error(err);
+      showLogin(friendlyAuthError(err));
+      return;
+    } finally {
+      setBusy(-1);
+    }
+    await run(loadAll, 'Loading your data…');
+    showPage(location.hash.replace('#', '') || 'dashboard');
+  }
+
+  async function signOut() {
+    $('#loginError').textContent = '';
+    await run(() => sb.auth.signOut(), 'Signing out…');
+  }
+
+  async function loadProducts() {
+    const { data, error } = await sb.from('products').select('*').order('product_code');
+    if (error) throw error;
+    cache.products = data;
+  }
+
+  async function loadShop() {
+    const { data, error } = await sb.from('shop_settings').select('*').eq('id', 1).maybeSingle();
+    if (error) throw error;
+    if (data) {
+      cache.shop = {
+        name: data.name || '', phone: data.phone || '',
+        address: data.address || '', gstin: data.gstin || ''
+      };
+    }
+  }
+
+  async function loadAll() {
+    await Promise.all([loadProducts(), loadShop()]);
+    renderShopForm();
+    renderCart();
+    renderProducts();
+  }
+
+  /* =====================================================================
+     Navigation
+     ===================================================================== */
   const PAGES = ['dashboard', 'billing', 'products', 'reports', 'settings'];
+  const currentPage = () => {
+    const a = $('.page.active');
+    return a ? a.id.replace('page-', '') : 'dashboard';
+  };
 
   function showPage(name) {
     if (!PAGES.includes(name)) name = 'dashboard';
     $$('.page').forEach(p => p.classList.toggle('active', p.id === 'page-' + name));
     $$('.nav button').forEach(b => b.classList.toggle('active', b.dataset.page === name));
     try { history.replaceState(null, '', '#' + name); } catch (e) { /* sandboxed frames */ }
-    renderAll();
     window.scrollTo(0, 0);
+    if (session) run(() => refreshPage(name), 'Loading…');
   }
 
-  /* ---------- Scan feedback: sound and frame flash ---------- */
+  async function refreshPage(name) {
+    if (name === 'dashboard') return refreshDashboard();
+    if (name === 'billing') { renderCart(); return refreshQuotes(); }
+    if (name === 'products') return renderProducts();
+    if (name === 'reports') return refreshReports();
+    if (name === 'settings') return refreshSettings();
+  }
+
+  /* =====================================================================
+     Scan feedback: sound and frame flash
+     ===================================================================== */
   let audioCtx = null;
 
-  // Browsers only allow sound after a user action, so create the audio context on clicks
+  // Browsers only allow sound after a user action, so the audio context is created on clicks.
   function unlockAudio() {
     try {
       if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -899,21 +1045,16 @@
     setTimeout(() => frame.classList.remove('hit'), 350);
   }
 
-  /* ---------- Barcode scanner ---------- */
+  /* =====================================================================
+     Barcode scanner (camera)
+     ===================================================================== */
   const BARCODE_FORMATS = ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'itf', 'qr_code'];
   const ZXING_URL = 'https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js';
 
   const scan = {
-    active: false,
-    onCode: null,
-    continuous: false,
-    stream: null,
-    timer: null,
-    reader: null,
-    last: '',
-    lastAt: 0
+    active: false, onCode: null, continuous: false,
+    stream: null, timer: null, reader: null, last: '', lastAt: 0
   };
-
   let statusFlashTimer = null;
 
   // addedName: product name for the "added" state, or null for a plain message
@@ -963,8 +1104,7 @@
       scan.stream.getTracks().forEach(t => t.stop());
       scan.stream = null;
     }
-    const video = $('#scanVideo');
-    video.srcObject = null;
+    $('#scanVideo').srcObject = null;
     $('#scanModal').classList.remove('show');
     $('.scan-frame').classList.remove('live', 'hit');
   }
@@ -1028,7 +1168,7 @@
     $('.scan-frame').classList.add('live');
     const video = $('#scanVideo');
     video.srcObject = stream;
-    try { await video.play(); } catch (e) { /* autoplay handled by playsinline */ }
+    try { await video.play(); } catch (e) { /* playsinline handles autoplay */ }
     setScanStatus('Point the camera at the barcode');
 
     try {
@@ -1057,13 +1197,16 @@
     }
   }
 
-  /* ---------- Products ---------- */
+  /* =====================================================================
+     Products
+     ===================================================================== */
   let editingProductId = null;
 
-  function nextProductId() {
-    state.meta.productSeq += 1;
-    return 'EP' + String(state.meta.productSeq).padStart(4, '0');
-  }
+  const findByBarcode = code => {
+    const c = String(code || '').trim();
+    if (!c) return null;
+    return cache.products.find(p => p.barcode && p.barcode === c) || null;
+  };
 
   function updateProductPreview() {
     const buy = parseFloat($('#pBuy').value);
@@ -1082,6 +1225,7 @@
   function resetProductForm() {
     editingProductId = null;
     ['#pName', '#pBarcode', '#pBuy', '#pSell'].forEach(sel => { $(sel).value = ''; });
+    $('#pStock').value = 0;
     $('#pFormTitle').textContent = 'Add a product';
     $('#pSubmit').textContent = 'Add product';
     $('#pCancel').hidden = true;
@@ -1089,14 +1233,15 @@
   }
 
   function startEditProduct(id) {
-    const p = state.products.find(x => x.id === id);
+    const p = cache.products.find(x => x.id === id);
     if (!p) return;
     editingProductId = id;
     $('#pName').value = p.name;
     $('#pBarcode').value = p.barcode || '';
-    $('#pBuy').value = p.buy;
-    $('#pSell').value = p.sell;
-    $('#pFormTitle').textContent = `Edit ${p.name} (${p.id})`;
+    $('#pStock').value = p.stock_qty;
+    $('#pBuy').value = p.buy_price;
+    $('#pSell').value = p.sell_price;
+    $('#pFormTitle').textContent = `Edit ${p.name} (${p.product_code})`;
     $('#pSubmit').textContent = 'Save changes';
     $('#pCancel').hidden = false;
     updateProductPreview();
@@ -1104,51 +1249,58 @@
     $('#pName').focus();
   }
 
-  function saveProduct() {
+  async function saveProduct() {
     const name = $('#pName').value.trim();
     const barcode = $('#pBarcode').value.trim();
     const buy = parseFloat($('#pBuy').value);
     const sell = parseFloat($('#pSell').value);
+    const stock = parseInt($('#pStock').value || '0', 10);
 
     if (!name) return toast('Enter a product name', 'error');
-    if (barcode && state.products.some(p => p.barcode === barcode && p.id !== editingProductId)) {
-      return toast('This barcode is already used by another product', 'error');
-    }
     if (isNaN(buy) || buy < 0) return toast('Enter a valid buying price', 'error');
     if (isNaN(sell) || sell < 0) return toast('Enter a valid selling price', 'error');
+    if (isNaN(stock) || stock < 0) return toast('Stock cannot be negative', 'error');
 
-    if (editingProductId) {
-      const p = state.products.find(x => x.id === editingProductId);
-      if (p) {
-        p.name = name;
-        p.barcode = barcode;
-        p.buy = buy;
-        p.sell = sell;
-      }
-      toast('Product updated');
-    } else {
-      const id = nextProductId();
-      state.products.push({ id, name, barcode, buy, sell, createdAt: Date.now() });
-      toast(`Added ${name} as ${id}`);
-    }
+    const wasEditing = editingProductId;
+    const ok = await run(async () => {
+      const { error } = await sb.rpc('save_product', {
+        p_id: wasEditing,
+        p_name: name,
+        p_barcode: barcode || null,
+        p_buy_price: buy,
+        p_sell_price: sell,
+        p_stock_qty: stock
+      });
+      if (error) throw error;
+      await loadProducts();
+      return true;
+    }, 'Saving product…');
 
-    persist();
+    if (!ok) return;
+    toast(wasEditing ? 'Product updated' : 'Product added');
     resetProductForm();
-    renderAll();
+    renderProducts();
+    renderCart();
   }
 
-  function deleteProduct(id) {
-    const p = state.products.find(x => x.id === id);
+  async function deleteProduct(id) {
+    const p = cache.products.find(x => x.id === id);
     if (!p) return;
-    if (!confirm(`Delete "${p.name}" (${p.id})? Past bills will not change.`)) return;
-    state.products = state.products.filter(x => x.id !== id);
+    if (!confirm(`Delete "${p.name}" (${p.product_code})? Past bills will not change.`)) return;
+    const ok = await run(async () => {
+      const { error } = await sb.rpc('delete_product', { p_id: id });
+      if (error) throw error;
+      await loadProducts();
+      return true;
+    }, 'Deleting product…');
+    if (!ok) return;
     if (editingProductId === id) resetProductForm();
-    persist();
-    renderAll();
     toast('Product deleted');
+    renderProducts();
+    renderCart();
   }
 
-  // Barcode scanned while adding/editing a product
+  // Barcode scanned while adding or editing a product
   function productScan(code) {
     const existing = findByBarcode(code);
     if (existing && existing.id !== editingProductId) {
@@ -1164,34 +1316,36 @@
   function renderProducts() {
     const q = $('#productSearch').value.trim().toLowerCase();
     const body = $('#productRows');
-    $('#productCount').textContent = state.products.length ? `(${state.products.length})` : '';
+    const all = cache.products;
+    $('#productCount').textContent = all.length ? `(${all.length})` : '';
 
-    if (!state.products.length) {
-      body.innerHTML = `<tr><td colspan="7" class="empty">No products yet. Add your first product above.</td></tr>`;
+    if (!all.length) {
+      body.innerHTML = `<tr><td colspan="8" class="empty">No products yet. Add your first product above.</td></tr>`;
       return;
     }
 
-    const list = state.products
+    const list = all
       .filter(p => !q
         || p.name.toLowerCase().includes(q)
-        || p.id.toLowerCase().includes(q)
+        || p.product_code.toLowerCase().includes(q)
         || (p.barcode || '').toLowerCase().includes(q))
       .sort((a, b) => a.name.localeCompare(b.name));
 
     if (!list.length) {
-      body.innerHTML = `<tr><td colspan="7" class="empty">No products match "${esc(q)}".</td></tr>`;
+      body.innerHTML = `<tr><td colspan="8" class="empty">No products match "${esc(q)}".</td></tr>`;
       return;
     }
 
     body.innerHTML = list.map(p => {
-      const pr = p.sell - p.buy;
+      const pr = Number(p.sell_price) - Number(p.buy_price);
       return `
         <tr>
-          <td>${esc(p.id)}</td>
+          <td>${esc(p.product_code)}</td>
           <td>${p.barcode ? esc(p.barcode) : '<span class="muted">—</span>'}</td>
           <td>${esc(p.name)}</td>
-          <td class="num">${money(p.buy)}</td>
-          <td class="num">${money(p.sell)}</td>
+          <td class="num ${p.stock_qty <= 0 ? 'neg' : ''}">${num(p.stock_qty)}</td>
+          <td class="num">${money(p.buy_price)}</td>
+          <td class="num">${money(p.sell_price)}</td>
           <td class="num ${pr < 0 ? 'neg' : ''}">${money(pr)}</td>
           <td class="actions">
             <button type="button" class="btn ghost small" data-edit="${esc(p.id)}">Edit</button>
@@ -1201,22 +1355,26 @@
     }).join('');
   }
 
-  /* ---------- Billing ---------- */
-  let cart = [];
+  /* =====================================================================
+     Billing: search, cart, totals
+     ===================================================================== */
+  let cart = [];                // { product_id, code, name, buy, sell, qty }
   let selectedProduct = null;
   let suggestions = [];
   let hlIndex = 0;
+  let mode = 'invoice';         // 'invoice' or 'quotation'
+  let pendingQuoteId = null;    // quotation loaded into the bill, not yet billed
 
   function findSuggestions(query) {
     const q = query.trim().toLowerCase();
     if (!q) return [];
-    return state.products
+    return cache.products
       .filter(p => p.name.toLowerCase().includes(q)
-        || p.id.toLowerCase().includes(q)
+        || p.product_code.toLowerCase().includes(q)
         || (p.barcode || '').toLowerCase().includes(q))
       .sort((a, b) => {
-        const aExact = (a.id.toLowerCase() === q || (a.barcode || '').toLowerCase() === q) ? 0 : 1;
-        const bExact = (b.id.toLowerCase() === q || (b.barcode || '').toLowerCase() === q) ? 0 : 1;
+        const aExact = (a.product_code.toLowerCase() === q || (a.barcode || '').toLowerCase() === q) ? 0 : 1;
+        const bExact = (b.product_code.toLowerCase() === q || (b.barcode || '').toLowerCase() === q) ? 0 : 1;
         if (aExact !== bExact) return aExact - bExact;
         const aStart = a.name.toLowerCase().startsWith(q) ? 0 : 1;
         const bStart = b.name.toLowerCase().startsWith(q) ? 0 : 1;
@@ -1240,8 +1398,8 @@
     } else {
       box.innerHTML = suggestions.map((p, i) => `
         <div role="option" data-i="${i}" class="${i === hlIndex ? 'hl' : ''}">
-          <span>${esc(p.name)}<small>${esc(p.id)}${p.barcode ? ' · ' + esc(p.barcode) : ''}</small></span>
-          <strong>${money(p.sell)}</strong>
+          <span>${esc(p.name)}<small>${esc(p.product_code)}${p.barcode ? ' · ' + esc(p.barcode) : ''} · Stock ${num(p.stock_qty)}</small></span>
+          <strong>${money(p.sell_price)}</strong>
         </div>`).join('');
     }
     box.classList.add('show');
@@ -1268,21 +1426,31 @@
     if (selectedProduct) return selectedProduct;
     const q = $('#prodSearch').value.trim().toLowerCase();
     if (!q) return null;
-    const exact = state.products.find(p =>
-      p.id.toLowerCase() === q || (p.barcode || '').toLowerCase() === q);
+    const exact = cache.products.find(p =>
+      p.product_code.toLowerCase() === q || (p.barcode || '').toLowerCase() === q);
     if (exact) return exact;
     if (suggestions.length) return suggestions[hlIndex >= 0 ? hlIndex : 0];
     return null;
   }
 
+  // Adds qty of a product to the cart. Returns false (and says why) when stock is not enough.
   function addProductToCart(p, qty) {
-    const existing = cart.find(i => i.productId === p.id);
+    const existing = cart.find(i => i.product_id === p.id);
+    const inCart = existing ? existing.qty : 0;
+    if (mode === 'invoice' && inCart + qty > Number(p.stock_qty)) {
+      toast(`Only ${num(p.stock_qty)} in stock for ${p.name}`, 'error');
+      return false;
+    }
     if (existing) {
       existing.qty += qty;
     } else {
-      cart.push({ productId: p.id, name: p.name, buy: Number(p.buy), sell: Number(p.sell), qty });
+      cart.push({
+        product_id: p.id, code: p.product_code, name: p.name,
+        buy: Number(p.buy_price), sell: Number(p.sell_price), qty
+      });
     }
     renderCart();
+    return true;
   }
 
   function addToCart() {
@@ -1292,7 +1460,7 @@
     const qty = parseInt($('#qty').value, 10);
     if (!(qty > 0)) return toast('Quantity must be at least 1', 'error');
 
-    addProductToCart(p, qty);
+    if (!addProductToCart(p, qty)) return;
     selectedProduct = null;
     suggestions = [];
     $('#prodSearch').value = '';
@@ -1303,14 +1471,14 @@
   }
 
   function flashCartRow(pid) {
-    const idx = cart.findIndex(i => i.productId === pid);
+    const idx = cart.findIndex(i => i.product_id === pid);
     const row = $$('#cartRows tr')[idx];
     if (!row) return;
     row.classList.add('flash');
     setTimeout(() => row.classList.remove('flash'), 1200);
   }
 
-  // Barcode scanned at the billing counter (continuous mode)
+  // Barcode scanned at the billing counter (continuous mode). Returns a status message.
   function billingScan(code) {
     const p = findByBarcode(code);
     if (!p) {
@@ -1318,7 +1486,10 @@
       toast(`No product has barcode ${code}`, 'error');
       return `Unknown barcode ${code}. Add it on the Products page.`;
     }
-    addProductToCart(p, 1);
+    if (!addProductToCart(p, 1)) {
+      playBeep(false);
+      return `Out of stock: ${p.name}`;
+    }
     flashCartRow(p.id);
     playBeep(true);
     flashScanFrame();
@@ -1334,23 +1505,24 @@
       cart.splice(idx, 1);
       toast(`${item.name} removed from bill`);
     } else {
+      const p = cache.products.find(x => x.id === item.product_id);
+      if (delta > 0 && p && next > Number(p.stock_qty)) {
+        return toast(`Only ${num(p.stock_qty)} in stock for ${item.name}`, 'error');
+      }
       item.qty = next;
     }
     renderCart();
   }
 
   function totals() {
-    const subtotal = sumBy(cart, i => i.sell * i.qty);
-    const cost = sumBy(cart, i => i.buy * i.qty);
+    const subtotal = cart.reduce((a, i) => a + i.sell * i.qty, 0);
+    const cost = cart.reduce((a, i) => a + i.buy * i.qty, 0);
     const discount = parseFloat($('#discount').value) || 0;
     const total = subtotal - discount;
     return {
       items: cart.length,
-      qty: sumBy(cart, i => i.qty),
-      subtotal,
-      discount,
-      total,
-      cost,
+      qty: cart.reduce((a, i) => a + i.qty, 0),
+      subtotal, discount, total, cost,
       profit: total - cost
     };
   }
@@ -1379,7 +1551,7 @@
           <tr>
             <td>
               <div>${esc(i.name)}</div>
-              <div class="muted small">${esc(i.productId)}</div>
+              <div class="muted small">${esc(i.code)}</div>
             </td>
             <td class="num">${money(i.sell)}</td>
             <td class="num">
@@ -1413,183 +1585,91 @@
     renderCart();
   }
 
-  function completeBill() {
-    if (mode === 'quotation') return saveQuotation();
-    if (!validCustomerGst()) return;
-    if (!cart.length) return toast('Add at least one product to the bill', 'error');
-
-    const t = totals();
-    if (t.discount < 0 || t.discount > t.subtotal) {
-      return toast('Discount must be between ₹0 and the subtotal', 'error');
-    }
-
-    const mobile = $('#custMobile').value.replace(/\s+/g, '');
-    if (mobile && !/^\d{10}$/.test(mobile)) {
-      return toast('Mobile number must be exactly 10 digits', 'error');
-    }
-
-    const now = new Date();
-    state.meta.invoiceSeq += 1;
-
-    const bill = {
-      id: 'B' + now.getTime().toString(36) + Math.random().toString(36).slice(2, 6),
-      invoiceNo: 'INV-' + String(state.meta.invoiceSeq).padStart(5, '0'),
-      date: dayKey(now),
-      time: timeLabel(now),
-      timestamp: now.getTime(),
-      customer: $('#custName').value.trim() || 'Walk-in Customer',
-      mobile,
-      customerGst: $('#custGst').value.trim().toUpperCase(),
-      items: cart.map(i => ({
-        productId: i.productId,
-        name: i.name,
-        qty: i.qty,
-        buy: i.buy,
-        sell: i.sell,
-        revenue: i.sell * i.qty,
-        cost: i.buy * i.qty,
-        profit: (i.sell - i.buy) * i.qty
-      })),
-      subtotal: t.subtotal,
-      discount: t.discount,
-      total: t.total,
-      cost: t.cost,
-      profit: t.profit,
-      totalQty: t.qty
-    };
-
-    state.bills.push(bill);
-    if (pendingQuoteId) {
-      const q = state.quotes.find(x => x.id === pendingQuoteId);
-      if (q) q.convertedTo = bill.invoiceNo;
-    }
-    persist();
-
-    clearBill();
-    renderAll();
-    openInvoice(bill);
-    toast(`Bill ${bill.invoiceNo} saved`);
-  }
-
-  /* ---------- GST number ---------- */
-  // 15 characters: 2-digit state code, PAN (10), entity number, Z, check character
-  const GSTIN_RE = /^\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
-
-  function validCustomerGst() {
-    const g = $('#custGst').value.trim().toUpperCase();
-    if (g && !GSTIN_RE.test(g)) {
-      toast('Customer GST number is not valid (15 characters, e.g. 27AAAAA0000A1Z5)', 'error');
-      return false;
-    }
-    return true;
-  }
-
-  /* ---------- Quotations ---------- */
-  let mode = 'invoice';          // 'invoice' or 'quotation'
-  let pendingQuoteId = null;     // quotation loaded into the bill, not yet billed
-
   function setMode(m) {
     mode = m;
     $$('.seg [data-mode]').forEach(b => b.classList.toggle('active', b.dataset.mode === m));
     $('#completeBtn').textContent = m === 'quotation' ? 'Save & print quotation' : 'Save & print bill';
   }
 
-  function saveQuotation() {
-    if (!cart.length) return toast('Add at least one product to the quotation', 'error');
-    if (!validCustomerGst()) return;
-
+  // Client-side checks for quick feedback. The server checks everything again.
+  function validateBillInputs() {
     const t = totals();
-    if (t.discount < 0 || t.discount > t.subtotal) {
-      return toast('Discount must be between ₹0 and the subtotal', 'error');
+    if (!cart.length) { toast('Add at least one product', 'error'); return false; }
+    const gst = $('#custGst').value.trim().toUpperCase();
+    if (gst && !GSTIN_RE.test(gst)) {
+      toast('Customer GST number is not valid (15 characters, e.g. 27AAAAA0000A1Z5)', 'error');
+      return false;
     }
     const mobile = $('#custMobile').value.replace(/\s+/g, '');
-    if (mobile && !/^\d{10}$/.test(mobile)) {
-      return toast('Mobile number must be exactly 10 digits', 'error');
+    if (mobile && !/^[0-9]{10}$/.test(mobile)) {
+      toast('Mobile number must be exactly 10 digits', 'error');
+      return false;
     }
+    if (t.discount < 0 || t.discount > t.subtotal) {
+      toast('Discount must be between ₹0 and the subtotal', 'error');
+      return false;
+    }
+    return true;
+  }
 
-    const now = new Date();
-    state.meta.quoteSeq += 1;
+  async function completeBill() {
+    if (!validateBillInputs()) return;
 
-    const quote = {
-      id: 'Q' + now.getTime().toString(36) + Math.random().toString(36).slice(2, 6),
-      invoiceNo: 'QTN-' + String(state.meta.quoteSeq).padStart(5, '0'),
-      date: dayKey(now),
-      time: timeLabel(now),
-      timestamp: now.getTime(),
-      customer: $('#custName').value.trim() || 'Walk-in Customer',
-      mobile,
-      customerGst: $('#custGst').value.trim().toUpperCase(),
-      items: cart.map(i => ({
-        productId: i.productId,
-        name: i.name,
-        qty: i.qty,
-        buy: i.buy,
-        sell: i.sell
-      })),
-      subtotal: t.subtotal,
-      discount: t.discount,
-      total: t.total,
-      totalQty: t.qty,
-      convertedTo: null
+    const isQuote = mode === 'quotation';
+    const quoteId = isQuote ? null : pendingQuoteId;
+    const payload = {
+      p_type: isQuote ? 'quotation' : 'invoice',
+      p_customer_name: $('#custName').value.trim() || WALK_IN,
+      p_customer_mobile: $('#custMobile').value.replace(/\s+/g, '') || null,
+      p_customer_gstin: $('#custGst').value.trim().toUpperCase() || null,
+      p_discount: parseFloat($('#discount').value) || 0,
+      p_items: cart.map(i => ({ product_id: i.product_id, qty: i.qty })),
+      p_quotation_id: quoteId
     };
 
-    state.quotes.push(quote);
-    persist();
+    const saved = await run(async () => {
+      const { data, error } = await sb.rpc('create_document', payload);
+      if (error) throw error;
+      return data;
+    }, isQuote ? 'Saving quotation…' : 'Saving bill…');
+
+    if (!saved) return;   // error already shown
+
+    // The document is saved at this point, so a failed reload must not look like a failed save.
+    await run(loadProducts, 'Updating stock…');
     clearBill();
-    renderAll();
-    openInvoice(quote);
-    toast(`Quotation ${quote.invoiceNo} saved`);
-  }
-
-  function quoteToBill(id) {
-    const q = state.quotes.find(x => x.id === id);
-    if (!q || q.convertedTo) return;
-    if (cart.length && !confirm('Replace the current bill items with this quotation?')) return;
-
-    cart = q.items.map(i => ({
-      productId: i.productId,
-      name: i.name,
-      buy: Number(i.buy),
-      sell: Number(i.sell),
-      qty: i.qty
-    }));
-    $('#custName').value = q.customer === 'Walk-in Customer' ? '' : q.customer;
-    $('#custMobile').value = q.mobile || '';
-    $('#custGst').value = q.customerGst || '';
-    $('#discount').value = q.discount || 0;
-    pendingQuoteId = q.id;
-    setMode('invoice');
-    showPage('billing');
+    renderProducts();
     renderCart();
-    toast(`Loaded ${q.invoiceNo}. Save the bill to complete it.`);
+    toast(`${saved.invoice_no} saved`);
+    await openDocument(saved.id);
+    if (currentPage() === 'billing') run(refreshQuotes, 'Loading quotations…');
   }
 
-  function deleteQuote(id) {
-    const q = state.quotes.find(x => x.id === id);
-    if (!q) return;
-    if (!confirm(`Delete quotation ${q.invoiceNo}?`)) return;
-    state.quotes = state.quotes.filter(x => x.id !== id);
-    if (pendingQuoteId === id) pendingQuoteId = null;
-    persist();
-    renderAll();
-    toast('Quotation deleted');
-  }
+  /* =====================================================================
+     Quotations
+     ===================================================================== */
+  async function refreshQuotes() {
+    const { data, error } = await sb.from('bills')
+      .select('id,invoice_no,bill_date,created_at,customer_name,customer_mobile,customer_gstin,discount,total_qty,total,converted_invoice_no')
+      .eq('doc_type', 'quotation')
+      .order('created_at', { ascending: false })
+      .limit(200);
+    if (error) throw error;
+    quoteList = data;
 
-  function renderQuotes() {
-    const list = [...state.quotes].sort((a, b) => b.timestamp - a.timestamp);
-    $('#quoteRows').innerHTML = list.length
-      ? list.map(q => `
+    $('#quoteRows').innerHTML = quoteList.length
+      ? quoteList.map(q => `
         <tr>
-          <td>${esc(q.invoiceNo)}</td>
-          <td>${fmtDate(q.date)} ${esc(q.time)}</td>
-          <td>${esc(q.customer)}</td>
-          <td class="num">${num(q.totalQty)}</td>
+          <td>${esc(q.invoice_no)}</td>
+          <td>${fmtDate(q.bill_date)} ${timeLabel(q.created_at)}</td>
+          <td>${esc(q.customer_name)}</td>
+          <td class="num">${num(q.total_qty)}</td>
           <td class="num">${money(q.total)}</td>
-          <td>${q.convertedTo ? 'Billed as ' + esc(q.convertedTo) : 'Not billed'}</td>
+          <td>${q.converted_invoice_no ? 'Billed as ' + esc(q.converted_invoice_no) : 'Not billed'}</td>
           <td class="actions">
             <div class="doc-actions">
               <button type="button" class="btn ghost small" data-reprint="${esc(q.id)}">View / print</button>
-              <button type="button" class="btn ghost small" data-quote-bill="${esc(q.id)}" ${q.convertedTo ? 'disabled' : ''}>Make bill</button>
+              <button type="button" class="btn ghost small" data-quote-bill="${esc(q.id)}" ${q.converted_invoice_no ? 'disabled' : ''}>Make bill</button>
               <button type="button" class="btn danger small" data-quote-delete="${esc(q.id)}">Delete</button>
             </div>
           </td>
@@ -1597,29 +1677,103 @@
       : `<tr><td colspan="7" class="empty">No quotations yet. Switch to Quotation above to create one.</td></tr>`;
   }
 
-  function updateClock() {
-    $('#billClock').textContent = 'Bill date and time: ' + new Date().toLocaleString('en-IN', {
-      day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
+  async function quoteToBill(id) {
+    const q = quoteList.find(x => x.id === id);
+    if (!q || q.converted_invoice_no) return;
+    if (cart.length && !confirm('Replace the current bill items with this quotation?')) return;
+
+    const items = await run(async () => {
+      const { data, error } = await sb.from('bill_items').select('product_id,qty').eq('bill_id', id).order('line_no');
+      if (error) throw error;
+      return data;
+    }, 'Loading quotation…');
+    if (!items) return;
+
+    cart = [];
+    let skipped = 0;
+    items.forEach(it => {
+      const p = cache.products.find(x => x.id === it.product_id);
+      if (!p || Number(p.stock_qty) < it.qty) { skipped++; return; }
+      cart.push({
+        product_id: p.id, code: p.product_code, name: p.name,
+        buy: Number(p.buy_price), sell: Number(p.sell_price), qty: Number(it.qty)
+      });
     });
+
+    $('#custName').value = q.customer_name === WALK_IN ? '' : q.customer_name;
+    $('#custMobile').value = q.customer_mobile || '';
+    $('#custGst').value = q.customer_gstin || '';
+    $('#discount').value = Number(q.discount) || 0;
+    pendingQuoteId = q.id;
+    setMode('invoice');
+    renderCart();
+
+    if (skipped) {
+      toast(`${q.invoice_no} loaded. ${skipped} item(s) were skipped because they are missing or out of stock.`, 'error');
+    } else {
+      toast(`Loaded ${q.invoice_no}. Save the bill to complete it.`);
+    }
   }
 
-  /* ---------- Invoice ---------- */
-  let currentBill = null;
+  async function deleteQuote(id) {
+    const q = quoteList.find(x => x.id === id);
+    if (!q) return;
+    if (!confirm(`Delete quotation ${q.invoice_no}?`)) return;
+    const ok = await run(async () => {
+      const { error } = await sb.rpc('delete_quotation', { p_id: id });
+      if (error) throw error;
+      return true;
+    }, 'Deleting quotation…');
+    if (!ok) return;
+    if (pendingQuoteId === id) pendingQuoteId = null;
+    toast('Quotation deleted');
+    run(refreshQuotes, 'Loading quotations…');
+  }
 
-  function invoiceHTML(b) {
-    const shop = state.meta.shop || {};
-    const isQuote = b.invoiceNo.startsWith('QTN');
-    const title = isQuote ? 'Quotation' : 'Invoice';
+  function updateClock() {
+    $('#billClock').textContent = 'Bill date and time: ' + dateTimeNow();
+  }
+
+  /* =====================================================================
+     Invoice / quotation view and print
+     ===================================================================== */
+  let currentDoc = null;
+
+  // Turns a bills row and its items into the shape used by the invoice view.
+  function docView(b, items) {
+    return {
+      id: b.id,
+      isQuote: b.doc_type === 'quotation',
+      invoiceNo: b.invoice_no,
+      date: b.bill_date,
+      time: timeLabel(b.created_at),
+      customer: b.customer_name,
+      mobile: b.customer_mobile || '',
+      customerGst: b.customer_gstin || '',
+      totalQty: Number(b.total_qty),
+      subtotal: Number(b.subtotal),
+      discount: Number(b.discount),
+      total: Number(b.total),
+      items: items.map(it => ({
+        code: it.product_code, name: it.product_name,
+        qty: Number(it.qty), sell: Number(it.sell_price)
+      }))
+    };
+  }
+
+  function invoiceHTML(v) {
+    const shop = cache.shop;
+    const title = v.isQuote ? 'Quotation' : 'Invoice';
     const shopInitial = esc((shop.name || 'Electronic Shop').trim().charAt(0).toUpperCase());
     const contact = [
       shop.phone ? 'Phone ' + esc(shop.phone) : '',
-      shop.gst ? 'GSTIN ' + esc(shop.gst) : ''
+      shop.gstin ? 'GSTIN ' + esc(shop.gstin) : ''
     ].filter(Boolean).join(' | ');
 
-    const rows = b.items.map((it, i) => `
+    const rows = v.items.map((it, i) => `
       <tr>
         <td class="c-idx">${i + 1}</td>
-        <td><div class="p-name">${esc(it.name)}</div><div class="p-id">${esc(it.productId)}</div></td>
+        <td><div class="p-name">${esc(it.name)}</div><div class="p-id">${esc(it.code)}</div></td>
         <td class="num">${num(it.qty)}</td>
         <td class="num">${money(it.sell)}</td>
         <td class="num strong">${money(it.sell * it.qty)}</td>
@@ -1638,16 +1792,16 @@
           </div>
           <div class="inv-doc">
             <span class="inv-pill">${title}</span>
-            <div class="inv-no">${esc(b.invoiceNo)}</div>
+            <div class="inv-no">${esc(v.invoiceNo)}</div>
           </div>
         </header>
 
         <section class="inv-meta">
-          <div><span>Date</span>${fmtDate(b.date)}</div>
-          <div><span>Time</span>${esc(b.time)}</div>
-          <div><span>Customer</span>${esc(b.customer)}</div>
-          <div><span>Mobile</span>${esc(b.mobile || '—')}</div>
-          ${b.customerGst ? `<div><span>Customer GSTIN</span>${esc(b.customerGst)}</div>` : ''}
+          <div><span>Date</span>${fmtDate(v.date)}</div>
+          <div><span>Time</span>${esc(v.time)}</div>
+          <div><span>Customer</span>${esc(v.customer)}</div>
+          <div><span>Mobile</span>${esc(v.mobile || '—')}</div>
+          ${v.customerGst ? `<div><span>Customer GSTIN</span>${esc(v.customerGst)}</div>` : ''}
         </section>
 
         <table class="inv-table">
@@ -1658,21 +1812,21 @@
         </table>
 
         <div class="inv-bottom">
-          <div class="inv-note">${isQuote ? 'This is a quotation, not a bill. Prices may change.' : 'Thank you for shopping with us.'}</div>
+          <div class="inv-note">${v.isQuote ? 'This is a quotation, not a bill. Prices may change.' : 'Thank you for shopping with us.'}</div>
           <div class="inv-totals">
-            <div><span>Items</span><span>${num(b.totalQty)}</span></div>
-            <div><span>Subtotal</span><span>${money(b.subtotal)}</span></div>
-            ${b.discount > 0 ? `<div class="disc"><span>Discount</span><span>- ${money(b.discount)}</span></div>` : ''}
-            <div class="grand"><span>Total</span><span>${money(b.total)}</span></div>
+            <div><span>Items</span><span>${num(v.totalQty)}</span></div>
+            <div><span>Subtotal</span><span>${money(v.subtotal)}</span></div>
+            ${v.discount > 0 ? `<div class="disc"><span>Discount</span><span>- ${money(v.discount)}</span></div>` : ''}
+            <div class="grand"><span>Total</span><span>${money(v.total)}</span></div>
           </div>
         </div>
       </article>`;
   }
 
-  function openInvoice(bill) {
-    currentBill = bill;
-    $('#invTitle').textContent = `${bill.invoiceNo.startsWith('QTN') ? 'Quotation' : 'Bill'} ${bill.invoiceNo}`;
-    $('#invoiceBody').innerHTML = invoiceHTML(bill);
+  function openInvoice(view) {
+    currentDoc = view;
+    $('#invTitle').textContent = `${view.isQuote ? 'Quotation' : 'Bill'} ${view.invoiceNo}`;
+    $('#invoiceBody').innerHTML = invoiceHTML(view);
     $('#invoiceModal').classList.add('show');
   }
 
@@ -1680,133 +1834,195 @@
     $('#invoiceModal').classList.remove('show');
   }
 
-  function printInvoice(bill) {
-    if (!bill) return;
-    $('#printArea').innerHTML = invoiceHTML(bill);
+  function printInvoice() {
+    if (!currentDoc) return;
+    $('#printArea').innerHTML = invoiceHTML(currentDoc);
     window.print();
   }
 
-  function findBill(id) {
-    return state.bills.find(b => b.id === id) || state.quotes.find(q => q.id === id);
+  // Loads a bill or quotation from the database and shows it.
+  async function openDocument(id) {
+    const doc = await run(async () => {
+      const { data, error } = await sb.from('bills')
+        .select('*, bill_items(*)')
+        .eq('id', id)
+        .single();
+      if (error) throw error;
+      return data;
+    }, 'Loading bill…');
+    if (!doc) return;
+    const items = [...(doc.bill_items || [])].sort((a, b) => a.line_no - b.line_no);
+    openInvoice(docView(doc, items));
   }
 
-  /* ---------- Dashboard ---------- */
+  /* =====================================================================
+     Dashboard
+     ===================================================================== */
+  const ZERO = { bills: 0, qty: 0, revenue: 0, cost: 0, profit: 0 };
+  const salesSeries = rows => [
+    { name: 'Sales', color: '#111111', values: rows.map(r => Number(r.revenue)) },
+    { name: 'Profit', color: '#9a9a9a', values: rows.map(r => Number(r.profit)) }
+  ];
+
   function renderShopForm() {
-    $('#shopName').value = state.meta.shop.name || '';
-    $('#shopPhone').value = state.meta.shop.phone || '';
-    $('#shopAddress').value = state.meta.shop.address || '';
-    $('#shopGst').value = state.meta.shop.gst || '';
+    $('#shopName').value = cache.shop.name;
+    $('#shopPhone').value = cache.shop.phone;
+    $('#shopAddress').value = cache.shop.address;
+    $('#shopGst').value = cache.shop.gstin;
   }
 
-  function saveShop() {
+  async function saveShop() {
     const gst = $('#shopGst').value.trim().toUpperCase();
     if (gst && !GSTIN_RE.test(gst)) {
       return toast('Shop GST number is not valid (15 characters, e.g. 27AAAAA0000A1Z5)', 'error');
     }
-    state.meta.shop = {
-      gst,
-      name: $('#shopName').value.trim(),
-      phone: $('#shopPhone').value.trim(),
-      address: $('#shopAddress').value.trim()
-    };
-    persist();
-    toast('Shop details saved');
+    const ok = await run(async () => {
+      const { data, error } = await sb.rpc('save_shop_settings', {
+        p_name: $('#shopName').value.trim(),
+        p_phone: $('#shopPhone').value.trim(),
+        p_address: $('#shopAddress').value.trim(),
+        p_gstin: gst || null
+      });
+      if (error) throw error;
+      cache.shop = {
+        name: data.name || '', phone: data.phone || '',
+        address: data.address || '', gstin: data.gstin || ''
+      };
+      return true;
+    }, 'Saving details…');
+    if (ok) toast('Shop details saved');
   }
 
-  function renderDashboard() {
+  const billRow = (b, withProfit) => `
+    <tr>
+      <td>${esc(b.invoice_no)}</td>
+      <td>${timeLabel(b.created_at)}</td>
+      <td>${esc(b.customer_name)}</td>
+      <td class="num">${num(b.total_qty)}</td>
+      <td class="num">${money(b.total)}</td>
+      ${withProfit ? `<td class="num ${Number(b.profit) < 0 ? 'neg' : ''}">${money(b.profit)}</td>` : ''}
+      <td class="actions"><button type="button" class="btn ghost small" data-reprint="${esc(b.id)}">View / print</button></td>
+    </tr>`;
+
+  async function refreshDashboard() {
     const today = todayKey();
     $('#todayLabel').textContent = new Date().toLocaleDateString('en-IN', {
-      weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+      timeZone: TZ, weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
     });
 
-    const tb = state.bills.filter(b => b.date === today);
-    $('#dTotal').textContent = money(sumBy(tb, b => b.total));
-    $('#dBills').textContent = num(tb.length);
-    $('#dQty').textContent = num(sumBy(tb, b => b.totalQty));
-    const profit = sumBy(tb, b => b.profit);
-    const pEl = $('#dProfit');
-    pEl.textContent = money(profit);
-    pEl.classList.toggle('neg', profit < 0);
-    $('#dCost').textContent = money(sumBy(tb, b => b.cost));
+    const from7 = shiftKey(today, -6);
+    const [todaySales, week, bills] = await Promise.all([
+      sb.rpc('sales_report', { p_grain: 'day', p_from: today, p_to: today }),
+      sb.rpc('sales_report', { p_grain: 'day', p_from: from7, p_to: today }),
+      sb.from('bills')
+        .select('id,invoice_no,created_at,customer_name,total_qty,total')
+        .eq('doc_type', 'invoice')
+        .eq('bill_date', today)
+        .order('created_at', { ascending: false })
+    ]);
+    for (const r of [todaySales, week, bills]) if (r.error) throw r.error;
 
-    const recent = [...tb].sort((a, b) => b.timestamp - a.timestamp);
-    $('#todayBillRows').innerHTML = recent.length
-      ? recent.map(b => `
-        <tr>
-          <td>${esc(b.invoiceNo)}</td>
-          <td>${esc(b.time)}</td>
-          <td>${esc(b.customer)}</td>
-          <td class="num">${num(b.totalQty)}</td>
-          <td class="num">${money(b.total)}</td>
-          <td class="actions"><button type="button" class="btn ghost small" data-reprint="${esc(b.id)}">View / print</button></td>
-        </tr>`).join('')
+    const t = todaySales.data[0] || ZERO;
+    $('#dTotal').textContent = money(t.revenue);
+    $('#dBills').textContent = num(t.bills);
+    $('#dQty').textContent = num(t.qty);
+    const pEl = $('#dProfit');
+    pEl.textContent = money(t.profit);
+    pEl.classList.toggle('neg', Number(t.profit) < 0);
+    $('#dCost').textContent = money(t.cost);
+
+    const byDay = Object.fromEntries(week.data.map(r => [r.period_start, r]));
+    const days = lastNDays(7);
+    drawChart('chart7', days.map(d => chartLabel(d, 'day')), salesSeries(days.map(d => byDay[d] || ZERO)));
+
+    $('#todayBillRows').innerHTML = bills.data.length
+      ? bills.data.map(b => billRow(b, false)).join('')
       : `<tr><td colspan="6" class="empty">No bills yet today. Create one on the Billing page.</td></tr>`;
   }
 
-  /* ---------- Reports ---------- */
+  /* =====================================================================
+     Reports (daily, monthly, yearly)
+     ===================================================================== */
+  let grain = 'day';
   let selectedDay = null;
+  let reportRows = [];
 
-  function dailySummaries() {
-    const map = {};
-    state.bills.forEach(b => {
-      if (!map[b.date]) {
-        map[b.date] = { date: b.date, bills: 0, qty: 0, revenue: 0, cost: 0, profit: 0 };
-      }
-      const d = map[b.date];
-      d.bills += 1;
-      d.qty += b.totalQty;
-      d.revenue += b.total;
-      d.cost += b.cost;
-      d.profit += b.profit;
-    });
-    return Object.values(map).sort((a, b) => b.date.localeCompare(a.date));
-  }
-
-  function renderReports() {
-    const days = dailySummaries();
-    $('#rTotal').textContent = money(sumBy(state.bills, b => b.total));
-    const profit = sumBy(state.bills, b => b.profit);
-    const pEl = $('#rProfit');
-    pEl.textContent = money(profit);
-    pEl.classList.toggle('neg', profit < 0);
-    $('#rBills').textContent = num(state.bills.length);
-    $('#rQty').textContent = num(sumBy(state.bills, b => b.totalQty));
-
-    $('#historyRows').innerHTML = days.length
-      ? days.map(d => `
-        <tr class="clickable ${d.date === selectedDay ? 'selected' : ''}" data-day="${d.date}">
-          <td>${fmtDate(d.date)}</td>
-          <td class="num">${num(d.bills)}</td>
-          <td class="num">${num(d.qty)}</td>
-          <td class="num">${money(d.revenue)}</td>
-          <td class="num">${money(d.cost)}</td>
-          <td class="num ${d.profit < 0 ? 'neg' : ''}">${money(d.profit)}</td>
-        </tr>`).join('')
-      : `<tr><td colspan="6" class="empty">No sales recorded yet.</td></tr>`;
-
-    const dayCard = $('#dayCard');
-    if (!selectedDay) {
-      dayCard.hidden = true;
-      return;
+  // Returns [from, to] dates for a report grain.
+  function reportRange(g) {
+    const t = todayKey();
+    if (g === 'day') return [shiftKey(t, -29), t];
+    if (g === 'month') {
+      const [y, m] = t.split('-').map(Number);
+      return [new Date(Date.UTC(y, m - 12, 1)).toISOString().slice(0, 10), t];
     }
-    const bills = state.bills
-      .filter(b => b.date === selectedDay)
-      .sort((a, b) => a.timestamp - b.timestamp);
-    $('#dayTitle').textContent = `Bills on ${fmtDate(selectedDay)}`;
-    $('#dayRows').innerHTML = bills.map(b => `
-      <tr>
-        <td>${esc(b.invoiceNo)}</td>
-        <td>${esc(b.time)}</td>
-        <td>${esc(b.customer)}</td>
-        <td class="num">${num(b.totalQty)}</td>
-        <td class="num">${money(b.total)}</td>
-        <td class="num ${b.profit < 0 ? 'neg' : ''}">${money(b.profit)}</td>
-        <td class="actions"><button type="button" class="btn ghost small" data-reprint="${esc(b.id)}">View / print</button></td>
-      </tr>`).join('');
-    dayCard.hidden = false;
+    return ['2000-01-01', t];
   }
 
-  /* ---------- Charts (vanilla SVG) ---------- */
+  async function refreshReports() {
+    const [from, to] = reportRange(grain);
+    const { data, error } = await sb.rpc('sales_report', { p_grain: grain, p_from: from, p_to: to });
+    if (error) throw error;
+
+    reportRows = data.map(r => ({
+      key: r.period_start,
+      bills: Number(r.bills), qty: Number(r.qty),
+      revenue: Number(r.revenue), cost: Number(r.cost), profit: Number(r.profit)
+    }));
+
+    const sum = k => reportRows.reduce((a, r) => a + r[k], 0);
+    $('#rTotal').textContent = money(sum('revenue'));
+    const pEl = $('#rProfit');
+    pEl.textContent = money(sum('profit'));
+    pEl.classList.toggle('neg', sum('profit') < 0);
+    $('#rBills').textContent = num(sum('bills'));
+    $('#rQty').textContent = num(sum('qty'));
+
+    const title = { day: 'Revenue and profit, last 30 days', month: 'Revenue and profit, last 12 months', year: 'Revenue and profit, by year' };
+    const limit = { day: 14, month: 12, year: 10 };
+    $('#chartTitle').textContent = title[grain];
+    $('#periodHead').textContent = { day: 'Date', month: 'Month', year: 'Year' }[grain];
+
+    const chartRows = reportRows.slice(0, limit[grain]).reverse();
+    drawChart('chart14', chartRows.map(r => chartLabel(r.key, grain)), salesSeries(chartRows));
+
+    $('#historyRows').innerHTML = reportRows.length
+      ? reportRows.map(r => `
+        <tr class="${grain === 'day' ? 'clickable' : ''} ${r.key === selectedDay ? 'selected' : ''}" ${grain === 'day' ? `data-day="${r.key}"` : ''}>
+          <td>${tableLabel(r.key, grain)}</td>
+          <td class="num">${num(r.bills)}</td>
+          <td class="num">${num(r.qty)}</td>
+          <td class="num">${money(r.revenue)}</td>
+          <td class="num">${money(r.cost)}</td>
+          <td class="num ${r.profit < 0 ? 'neg' : ''}">${money(r.profit)}</td>
+        </tr>`).join('')
+      : `<tr><td colspan="6" class="empty">No sales recorded for this period yet.</td></tr>`;
+
+    if (grain === 'day' && selectedDay) {
+      await loadDayBills(selectedDay);
+    } else {
+      $('#dayCard').hidden = true;
+    }
+  }
+
+  async function loadDayBills(day) {
+    const { data, error } = await sb.from('bills')
+      .select('id,invoice_no,created_at,customer_name,total_qty,total,profit')
+      .eq('doc_type', 'invoice')
+      .eq('bill_date', day)
+      .order('created_at');
+    if (error) throw error;
+    $('#dayTitle').textContent = `Bills on ${fmtDate(day)}`;
+    $('#dayRows').innerHTML = data.length
+      ? data.map(b => billRow(b, true)).join('')
+      : `<tr><td colspan="7" class="empty">No bills on this day.</td></tr>`;
+    $('#dayCard').hidden = false;
+  }
+
+  /* =====================================================================
+     Charts (vanilla SVG)
+     ===================================================================== */
+  const charts = {};
+
   function shortMoney(v) {
     if (v >= 100000) return '₹' + (v / 100000).toFixed(1) + 'L';
     if (v >= 1000) return '₹' + (v / 1000).toFixed(v % 1000 ? 1 : 0) + 'K';
@@ -1862,118 +2078,30 @@
     el.innerHTML = svg + legend;
   }
 
-  function drawCharts() {
-    const series = days => {
-      const sums = days.map(d => {
-        const bs = state.bills.filter(b => b.date === d);
-        return { rev: sumBy(bs, b => b.total), pr: sumBy(bs, b => b.profit) };
-      });
-      return [
-        { name: 'Sales', color: '#111111', values: sums.map(s => s.rev) },
-        { name: 'Profit', color: '#9a9a9a', values: sums.map(s => s.pr) }
-      ];
-    };
-    const d7 = lastNDays(7);
-    barChart($('#chart7'), d7.map(fmtShort), series(d7));
-    const d14 = lastNDays(14);
-    barChart($('#chart14'), d14.map(fmtShort), series(d14));
+  function drawChart(id, labels, series) {
+    charts[id] = { labels, series };
+    barChart($('#' + id), labels, series);
   }
 
-  /* ---------- Render ---------- */
-  function renderAll() {
-    renderDashboard();
-    renderCart();
-    renderProducts();
-    renderReports();
-    renderQuotes();
-    renderSettings();
-    drawCharts();
-    updateClock();
+  /* =====================================================================
+     Settings: counts, exports
+     ===================================================================== */
+  async function refreshSettings() {
+    $('#accountEmail').textContent = session?.user?.email || '';
+    $('#dbHost').textContent = CFG.SUPABASE_URL ? new URL(CFG.SUPABASE_URL).host : '';
+
+    const [prod, cust, inv, quo] = await Promise.all([
+      sb.from('products').select('id', { count: 'exact', head: true }),
+      sb.from('customers').select('id', { count: 'exact', head: true }),
+      sb.from('bills').select('id', { count: 'exact', head: true }).eq('doc_type', 'invoice'),
+      sb.from('bills').select('id', { count: 'exact', head: true }).eq('doc_type', 'quotation')
+    ]);
+    for (const r of [prod, cust, inv, quo]) if (r.error) throw r.error;
+    $('#stProducts').textContent = num(prod.count);
+    $('#stCustomers').textContent = num(cust.count);
+    $('#stBills').textContent = num(inv.count);
+    $('#stQuotes').textContent = num(quo.count);
   }
-
-  /* ---------- USB / Bluetooth keyboard-wedge scanner (PC) ---------- */
-  // A scanner types the barcode very fast and then presses Enter. People type much
-  // slower, so a fast run of characters ending in Enter is treated as a scan.
-  const WEDGE_MAX_GAP_MS = 70;  // max delay between characters within one scan
-  const WEDGE_MIN_LEN = 4;      // shortest barcode accepted
-  const wedge = { buffer: '', last: 0, targetEl: null, startValue: null };
-
-  function resetWedge() {
-    wedge.buffer = '';
-    wedge.targetEl = null;
-    wedge.startValue = null;
-  }
-
-  function isTextField(el) {
-    return !!el && (el.tagName === 'TEXTAREA' ||
-      (el.tagName === 'INPUT' && ['text', 'number', 'tel', 'search', ''].includes(el.type)));
-  }
-
-  function currentPage() {
-    const active = $('.page.active');
-    return active ? active.id.replace('page-', '') : '';
-  }
-
-  function handleScan(code) {
-    if (scan.active) return onDetected(code);
-    if ($('#invoiceModal').classList.contains('show')) return;
-
-    if (currentPage() === 'products') {
-      productScan(code);
-      ($('#pName').value.trim() ? $('#pBuy') : $('#pName')).focus();
-      return;
-    }
-
-    if (currentPage() !== 'billing') showPage('billing');
-    const msg = billingScan(code);
-    if (!msg) toast(`Added ${findByBarcode(code).name}`);
-  }
-
-  // Capture phase, so a scan's Enter never reaches the form/search handlers
-  document.addEventListener('keydown', e => {
-    if (e.ctrlKey || e.metaKey || e.altKey) return resetWedge();
-    if (['Shift', 'Control', 'Alt', 'Meta', 'Tab'].includes(e.key)) return;
-
-    const now = performance.now();
-
-    if (e.key.length === 1) {
-      if (!wedge.buffer || now - wedge.last > WEDGE_MAX_GAP_MS) {
-        resetWedge();
-        const el = document.activeElement;
-        if (isTextField(el)) {
-          wedge.targetEl = el;
-          wedge.startValue = el.value;
-        }
-      }
-      wedge.buffer += e.key;
-      wedge.last = now;
-      return;
-    }
-
-    if (e.key === 'Enter') {
-      const isScan = wedge.buffer.length >= WEDGE_MIN_LEN && now - wedge.last <= WEDGE_MAX_GAP_MS;
-      if (isScan) {
-        e.preventDefault();
-        e.stopPropagation();
-        const code = wedge.buffer;
-        const el = wedge.targetEl;
-        // Remove the scanned digits that landed in the focused field
-        if (el && wedge.startValue !== null) {
-          el.value = wedge.startValue;
-          el.dispatchEvent(new Event('input', { bubbles: true }));
-        }
-        resetWedge();
-        handleScan(code);
-        return;
-      }
-    }
-
-    resetWedge();
-  }, true);
-
-  /* ---------- Settings: export & import ---------- */
-  const round2 = n => Math.round((Number(n) || 0) * 100) / 100;
-  const stampDate = () => dayKey(new Date());
 
   function downloadFile(filename, text, mime) {
     const url = URL.createObjectURL(new Blob([text], { type: mime }));
@@ -1994,243 +2122,88 @@
   }
 
   function toCSV(headers, rows) {
-    return '\uFEFF' + [headers, ...rows].map(r => r.map(csvCell).join(',')).join('\r\n');
+    return '﻿' + [headers, ...rows].map(r => r.map(csvCell).join(',')).join('\r\n');
   }
 
-  function exportJSON() {
+  const stampDate = () => todayKey();
+
+  async function exportJSON() {
+    const [products, customers, bills, items, movements, shop] = await run(async () => Promise.all([
+      fetchAll(() => sb.from('products').select('*').order('id')),
+      fetchAll(() => sb.from('customers').select('*').order('id')),
+      fetchAll(() => sb.from('bills').select('*').order('id')),
+      fetchAll(() => sb.from('bill_items').select('*').order('id')),
+      fetchAll(() => sb.from('inventory_movements').select('*').order('id')),
+      sb.from('shop_settings').select('*').eq('id', 1).maybeSingle()
+    ]), 'Preparing backup…') || [];
+    if (!products) return;
     const payload = {
       app: 'electronic-shop-billing',
-      version: 2,
+      version: 3,
       exportedAt: new Date().toISOString(),
-      data: {
-        products: state.products,
-        bills: state.bills,
-        quotes: state.quotes,
-        meta: state.meta
-      }
+      data: { products, customers, bills, bill_items: items, inventory_movements: movements, shop_settings: shop.data }
     };
     downloadFile(`shop-backup-${stampDate()}.json`, JSON.stringify(payload, null, 2), 'application/json');
     toast('Backup downloaded');
   }
 
-  function exportCSV(type) {
+  async function exportCSV(type) {
     const d = stampDate();
-    if (type === 'bills') {
-      const rows = state.bills.map(b => [
-        b.invoiceNo, fmtDate(b.date), b.time, b.customer, b.mobile || '',
-        b.totalQty, round2(b.subtotal), round2(b.discount), round2(b.total), round2(b.cost), round2(b.profit)
-      ]);
-      downloadFile(`bills-${d}.csv`, toCSV(
-        ['Invoice', 'Date', 'Time', 'Customer', 'Mobile', 'Quantity', 'Subtotal', 'Discount', 'Total', 'Buying cost', 'Profit'],
-        rows), 'text/csv');
-    } else if (type === 'items') {
-      const rows = state.bills.flatMap(b => b.items.map(it => [
-        b.invoiceNo, fmtDate(b.date), b.time, it.productId, it.name, it.qty,
-        round2(it.buy), round2(it.sell), round2(it.sell * it.qty), round2(it.buy * it.qty), round2((it.sell - it.buy) * it.qty)
-      ]));
-      downloadFile(`bill-items-${d}.csv`, toCSV(
-        ['Invoice', 'Date', 'Time', 'Product ID', 'Product', 'Quantity', 'Buying price', 'Selling price', 'Amount', 'Buying cost', 'Profit'],
-        rows), 'text/csv');
-    } else if (type === 'products') {
-      const rows = state.products.map(p => [
-        p.id, p.barcode || '', p.name, round2(p.buy), round2(p.sell), round2(p.sell - p.buy)
-      ]);
-      downloadFile(`products-${d}.csv`, toCSV(
-        ['Product ID', 'Barcode', 'Name', 'Buying price', 'Selling price', 'Profit per unit'],
-        rows), 'text/csv');
-    } else if (type === 'quotations') {
-      const rows = state.quotes.map(q => [
-        q.invoiceNo, fmtDate(q.date), q.time, q.customer, q.mobile || '', q.totalQty,
-        round2(q.subtotal), round2(q.discount), round2(q.total), q.convertedTo || 'Not billed'
-      ]);
-      downloadFile(`quotations-${d}.csv`, toCSV(
-        ['Quotation', 'Date', 'Time', 'Customer', 'Mobile', 'Quantity', 'Subtotal', 'Discount', 'Total', 'Status'],
-        rows), 'text/csv');
-    }
-    toast('CSV downloaded');
-  }
-
-  // ----- Import -----
-  let pendingImport = null;
-
-  const isNonNegative = v => typeof v === 'number' && isFinite(v) && v >= 0;
-  const numPart = s => parseInt(String(s ?? '').replace(/\D/g, ''), 10) || 0;
-  const maxOf = (arr, f, start) => arr.reduce((m, x) => Math.max(m, f(x)), start);
-
-  function cleanProduct(p) {
-    if (!p || typeof p.id !== 'string' || typeof p.name !== 'string' || !p.name.trim()) return null;
-    const buy = Number(p.buy);
-    const sell = Number(p.sell);
-    if (!isNonNegative(buy) || !isNonNegative(sell)) return null;
-    return {
-      id: p.id,
-      name: p.name.trim(),
-      barcode: typeof p.barcode === 'string' ? p.barcode.trim() : '',
-      buy,
-      sell,
-      createdAt: Number(p.createdAt) || Date.now()
-    };
-  }
-
-  function cleanItem(it) {
-    if (!it || typeof it.productId !== 'string' || typeof it.name !== 'string') return null;
-    const qty = Number(it.qty);
-    const buy = Number(it.buy);
-    const sell = Number(it.sell);
-    if (!(qty > 0) || !isNonNegative(buy) || !isNonNegative(sell)) return null;
-    return { productId: it.productId, name: it.name, qty, buy, sell,
-      revenue: sell * qty, cost: buy * qty, profit: (sell - buy) * qty };
-  }
-
-  function cleanDocument(d, isQuote) {
-    if (!d || typeof d.id !== 'string' || typeof d.invoiceNo !== 'string'
-        || !/^\d{4}-\d{2}-\d{2}$/.test(d.date || '')) return null;
-    const items = Array.isArray(d.items) ? d.items.map(cleanItem) : [];
-    if (!items.length || items.some(i => !i)) return null;
-
-    const subtotal = sumBy(items, i => i.sell * i.qty);
-    const discount = isNonNegative(Number(d.discount)) ? Math.min(Number(d.discount), subtotal) : 0;
-    const total = subtotal - discount;
-    const base = {
-      id: d.id,
-      invoiceNo: d.invoiceNo,
-      date: d.date,
-      time: String(d.time || ''),
-      timestamp: Number(d.timestamp) || new Date(d.date + 'T12:00:00').getTime(),
-      customer: String(d.customer || 'Walk-in Customer'),
-      mobile: String(d.mobile || ''),
-      items,
-      subtotal,
-      discount,
-      total,
-      totalQty: sumBy(items, i => i.qty)
-    };
-    if (isQuote) return { ...base, convertedTo: d.convertedTo || null };
-    const cost = sumBy(items, i => i.cost);
-    return { ...base, cost, profit: total - cost };
-  }
-
-  function parseBackup(text) {
-    let json;
-    try {
-      json = JSON.parse(text);
-    } catch (err) {
-      throw new Error('This file is not valid JSON.');
-    }
-    const d = json && json.data;
-    if (!d || !Array.isArray(d.products) || !Array.isArray(d.bills)) {
-      throw new Error('This file is not a backup made by this app.');
-    }
-    const quoteList = Array.isArray(d.quotes) ? d.quotes : [];
-    const products = d.products.map(cleanProduct).filter(Boolean);
-    const bills = d.bills.map(b => cleanDocument(b, false)).filter(Boolean);
-    const quotes = quoteList.map(q => cleanDocument(q, true)).filter(Boolean);
-    const meta = d.meta || {};
-
-    return {
-      products,
-      bills,
-      quotes,
-      meta: {
-        productSeq: Number(meta.productSeq) || 0,
-        invoiceSeq: Number(meta.invoiceSeq) || 0,
-        quoteSeq: Number(meta.quoteSeq) || 0,
-        shop: meta.shop && typeof meta.shop === 'object' ? meta.shop : null
-      },
-      skipped: {
-        products: d.products.length - products.length,
-        bills: d.bills.length - bills.length,
-        quotes: quoteList.length - quotes.length
+    await run(async () => {
+      if (type === 'bills') {
+        const rows = await fetchAll(() => sb.from('bills')
+          .select('invoice_no,bill_date,created_at,customer_name,customer_mobile,total_qty,subtotal,discount,total,cost,profit')
+          .eq('doc_type', 'invoice').order('id'));
+        downloadFile(`bills-${d}.csv`, toCSV(
+          ['Invoice', 'Date', 'Time', 'Customer', 'Mobile', 'Quantity', 'Subtotal', 'Discount', 'Total', 'Buying cost', 'Profit'],
+          rows.map(b => [
+            b.invoice_no, fmtDate(b.bill_date), timeLabel(b.created_at), b.customer_name, b.customer_mobile || '',
+            b.total_qty, round2(b.subtotal), round2(b.discount), round2(b.total), round2(b.cost), round2(b.profit)
+          ])), 'text/csv');
+      } else if (type === 'items') {
+        const rows = await fetchAll(() => sb.from('bill_items')
+          .select('product_code,product_name,qty,buy_price,sell_price,amount,cost,profit,bills!inner(invoice_no,bill_date,created_at,doc_type)')
+          .eq('bills.doc_type', 'invoice').order('id'));
+        downloadFile(`bill-items-${d}.csv`, toCSV(
+          ['Invoice', 'Date', 'Time', 'Product ID', 'Product', 'Quantity', 'Buying price', 'Selling price', 'Amount', 'Buying cost', 'Profit'],
+          rows.map(it => [
+            it.bills.invoice_no, fmtDate(it.bills.bill_date), timeLabel(it.bills.created_at),
+            it.product_code, it.product_name, it.qty,
+            round2(it.buy_price), round2(it.sell_price), round2(it.amount), round2(it.cost), round2(it.profit)
+          ])), 'text/csv');
+      } else if (type === 'products') {
+        downloadFile(`products-${d}.csv`, toCSV(
+          ['Product ID', 'Barcode', 'Name', 'Stock', 'Buying price', 'Selling price', 'Profit per unit'],
+          cache.products.map(p => [
+            p.product_code, p.barcode || '', p.name, p.stock_qty,
+            round2(p.buy_price), round2(p.sell_price), round2(p.sell_price - p.buy_price)
+          ])), 'text/csv');
+      } else if (type === 'quotations') {
+        const rows = await fetchAll(() => sb.from('bills')
+          .select('invoice_no,bill_date,created_at,customer_name,customer_mobile,total_qty,subtotal,discount,total,converted_invoice_no')
+          .eq('doc_type', 'quotation').order('id'));
+        downloadFile(`quotations-${d}.csv`, toCSV(
+          ['Quotation', 'Date', 'Time', 'Customer', 'Mobile', 'Quantity', 'Subtotal', 'Discount', 'Total', 'Status'],
+          rows.map(q => [
+            q.invoice_no, fmtDate(q.bill_date), timeLabel(q.created_at), q.customer_name, q.customer_mobile || '',
+            q.total_qty, round2(q.subtotal), round2(q.discount), round2(q.total),
+            q.converted_invoice_no ? 'Billed as ' + q.converted_invoice_no : 'Not billed'
+          ])), 'text/csv');
+      } else if (type === 'sales') {
+        const { data, error } = await sb.rpc('sales_report', { p_grain: 'day', p_from: '2000-01-01', p_to: todayKey() });
+        if (error) throw error;
+        downloadFile(`daily-sales-${d}.csv`, toCSV(
+          ['Date', 'Bills', 'Products sold', 'Revenue', 'Buying cost', 'Profit'],
+          data.map(r => [fmtDate(r.period_start), r.bills, r.qty, round2(r.revenue), round2(r.cost), round2(r.profit)])
+        ), 'text/csv');
       }
-    };
+      toast('Export downloaded');
+    }, 'Preparing export…');
   }
 
-  function showImportPreview(file, parsed) {
-    pendingImport = parsed;
-    const skipped = s => s ? ` (${s} invalid skipped)` : '';
-    $('#ipName').textContent = file.name;
-    $('#ipProducts').textContent = num(parsed.products.length) + skipped(parsed.skipped.products);
-    $('#ipBills').textContent = num(parsed.bills.length) + skipped(parsed.skipped.bills);
-    $('#ipQuotes').textContent = num(parsed.quotes.length) + skipped(parsed.skipped.quotes);
-    $('#importPreview').hidden = false;
-  }
-
-  function resetImport() {
-    pendingImport = null;
-    $('#importFile').value = '';
-    $('#importPreview').hidden = true;
-  }
-
-  function runImport() {
-    if (!pendingImport) return;
-    const p = pendingImport;
-    const mode = document.querySelector('input[name="importMode"]:checked').value;
-
-    if (mode === 'replace') {
-      if (!confirm('Replace ALL current data with this file? Current products, bills and quotations will be deleted. Export a backup first if you need them.')) return;
-      state.products = p.products;
-      state.bills = p.bills;
-      state.quotes = p.quotes;
-      state.meta.productSeq = maxOf(p.products, x => numPart(x.id), p.meta.productSeq);
-      state.meta.invoiceSeq = maxOf(p.bills, x => numPart(x.invoiceNo), p.meta.invoiceSeq);
-      state.meta.quoteSeq = maxOf(p.quotes, x => numPart(x.invoiceNo), p.meta.quoteSeq);
-      if (p.meta.shop) state.meta.shop = { name: '', phone: '', address: '', ...p.meta.shop };
-      persist();
-      toast('Data replaced from file');
-    } else {
-      const productIds = new Set(state.products.map(x => x.id));
-      const barcodes = new Set(state.products.map(x => x.barcode).filter(Boolean));
-      const billIds = new Set(state.bills.map(x => x.id));
-      const quoteIds = new Set(state.quotes.map(x => x.id));
-      let added = { products: 0, bills: 0, quotes: 0 };
-      let skipped = 0;
-      let barcodeCleared = 0;
-
-      p.products.forEach(x => {
-        if (productIds.has(x.id)) { skipped++; return; }
-        if (x.barcode && barcodes.has(x.barcode)) { x.barcode = ''; barcodeCleared++; }
-        if (x.barcode) barcodes.add(x.barcode);
-        productIds.add(x.id);
-        state.products.push(x);
-        added.products++;
-      });
-      p.bills.forEach(x => {
-        if (billIds.has(x.id)) { skipped++; return; }
-        billIds.add(x.id);
-        state.bills.push(x);
-        added.bills++;
-      });
-      p.quotes.forEach(x => {
-        if (quoteIds.has(x.id)) { skipped++; return; }
-        quoteIds.add(x.id);
-        state.quotes.push(x);
-        added.quotes++;
-      });
-
-      state.meta.productSeq = maxOf(state.products, x => numPart(x.id), state.meta.productSeq);
-      state.meta.invoiceSeq = maxOf(state.bills, x => numPart(x.invoiceNo), state.meta.invoiceSeq);
-      state.meta.quoteSeq = maxOf(state.quotes, x => numPart(x.invoiceNo), state.meta.quoteSeq);
-      if (!state.meta.shop.name && p.meta.shop) state.meta.shop = { name: '', phone: '', address: '', ...p.meta.shop };
-      persist();
-
-      let msg = `Imported ${added.products} products, ${added.bills} bills, ${added.quotes} quotations.`;
-      if (skipped) msg += ` ${skipped} already existed and were skipped.`;
-      if (barcodeCleared) msg += ` ${barcodeCleared} barcodes were already in use and were cleared.`;
-      toast(msg);
-    }
-
-    resetImport();
-    renderShopForm();
-    renderAll();
-  }
-
-  function renderSettings() {
-    $('#stProducts').textContent = num(state.products.length);
-    $('#stBills').textContent = num(state.bills.length);
-    $('#stQuotes').textContent = num(state.quotes.length);
-  }
-
-  /* ---------- Events ---------- */
+  /* =====================================================================
+     Events
+     ===================================================================== */
   document.addEventListener('click', e => {
     const nav = e.target.closest('button[data-page]');
     if (nav) return showPage(nav.dataset.page);
@@ -2239,16 +2212,10 @@
     if (goto) return showPage(goto.dataset.goto);
 
     if (e.target.closest('[data-close]')) return closeInvoice();
+    if (e.target.id === 'invoiceModal') return closeInvoice();
 
     const rep = e.target.closest('[data-reprint]');
-    if (rep) {
-      const b = findBill(rep.dataset.reprint);
-      if (b) openInvoice(b);
-      else toast('Bill not found', 'error');
-      return;
-    }
-
-    if (e.target.id === 'invoiceModal') return closeInvoice();
+    if (rep) return openDocument(rep.dataset.reprint);
 
     const edit = e.target.closest('[data-edit]');
     if (edit) return startEditProduct(edit.dataset.edit);
@@ -2268,13 +2235,19 @@
     const exp = e.target.closest('[data-export]');
     if (exp) {
       const type = exp.dataset.export;
-      return type === 'json' ? exportJSON() : exportCSV(type);
+      return type === 'json' ? run(exportJSON, 'Preparing backup…') : exportCSV(type);
     }
-    if (e.target.closest('#importRun')) return runImport();
-    if (e.target.closest('#importCancel')) return resetImport();
 
     const modeBtn = e.target.closest('[data-mode]');
     if (modeBtn) return setMode(modeBtn.dataset.mode);
+
+    const grainBtn = e.target.closest('[data-grain]');
+    if (grainBtn) {
+      grain = grainBtn.dataset.grain;
+      selectedDay = null;
+      $$('[data-grain]').forEach(b => b.classList.toggle('active', b === grainBtn));
+      return run(refreshReports, 'Loading reports…');
+    }
 
     const quoteBill = e.target.closest('[data-quote-bill]');
     if (quoteBill) return quoteToBill(quoteBill.dataset.quoteBill);
@@ -2283,10 +2256,11 @@
     if (quoteDel) return deleteQuote(quoteDel.dataset.quoteDelete);
 
     const dayRow = e.target.closest('tr[data-day]');
-    if (dayRow) {
+    if (dayRow && grain === 'day') {
       selectedDay = dayRow.dataset.day;
-      renderReports();
-      $('#dayCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      run(refreshReports, 'Loading bills…').then(() => {
+        $('#dayCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
     }
   });
 
@@ -2296,7 +2270,7 @@
     else closeInvoice();
   });
 
-  // Products (plain buttons and Enter key, no <form> element)
+  // Products
   $('#pSubmit').addEventListener('click', saveProduct);
   $('#pCancel').addEventListener('click', resetProductForm);
   $('#pBuy').addEventListener('input', updateProductPreview);
@@ -2369,6 +2343,12 @@
       input.value = cart[idx].qty;
       return;
     }
+    const p = cache.products.find(x => x.id === cart[idx].product_id);
+    if (mode === 'invoice' && p && v > Number(p.stock_qty)) {
+      toast(`Only ${num(p.stock_qty)} in stock for ${p.name}`, 'error');
+      input.value = cart[idx].qty;
+      return;
+    }
     cart[idx].qty = v;
     renderCart();
   });
@@ -2380,47 +2360,174 @@
     clearBill();
   });
 
-  $('#importFile').addEventListener('change', async e => {
-    const file = e.target.files[0];
-    if (!file) return;
-    if (file.size > 25 * 1024 * 1024) {
-      toast('This file is too large to import', 'error');
-      return resetImport();
-    }
-    try {
-      const parsed = parseBackup(await file.text());
-      showImportPreview(file, parsed);
-    } catch (err) {
-      toast(err.message || 'Could not read this file', 'error');
-      resetImport();
-    }
-  });
-
-  $('#printBtn').addEventListener('click', () => printInvoice(currentBill));
+  $('#printBtn').addEventListener('click', printInvoice);
   $('#shopSave').addEventListener('click', saveShop);
-
   $('#closeDay').addEventListener('click', () => {
     selectedDay = null;
-    renderReports();
+    $('#dayCard').hidden = true;
+    run(refreshReports, 'Loading reports…');
   });
 
+  // Login
+  $('#loginForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    if (!sb) return;
+    const email = $('#loginEmail').value.trim();
+    const password = $('#loginPassword').value;
+    if (!email || !password) {
+      $('#loginError').textContent = 'Enter your email and password.';
+      return;
+    }
+    $('#loginError').textContent = '';
+
+    let res;
+    setBusy(1, 'Signing in…');
+    try {
+      res = await sb.auth.signInWithPassword({ email, password });
+    } catch (err) {
+      res = { error: err };
+    } finally {
+      setBusy(-1);
+    }
+    if (res.error) return showLogin(friendlyAuthError(res.error));
+    await startSession(res.data.session);
+  });
+
+  $('#logoutBtn').addEventListener('click', signOut);
+  $('#settingsSignOut').addEventListener('click', signOut);
+
+  // Keep charts sized to the window
   let resizeTimer;
   window.addEventListener('resize', () => {
     clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(drawCharts, 150);
+    resizeTimer = setTimeout(() => {
+      Object.entries(charts).forEach(([id, c]) => barChart($('#' + id), c.labels, c.series));
+    }, 150);
   });
 
-  /* ---------- Init ---------- */
-  function init() {
-    renderShopForm();
-    resetProductForm();
-    setMode('invoice');
-    const start = location.hash.replace('#', '');
-    showPage(PAGES.includes(start) ? start : 'dashboard');
-    setInterval(updateClock, 30000);
+  // Barcode scanner on a USB or Bluetooth keyboard-wedge scanner (PC).
+  // A scanner types the barcode very fast and then presses Enter.
+  const WEDGE_MAX_GAP_MS = 70;
+  const WEDGE_MIN_LEN = 4;
+  const wedge = { buffer: '', last: 0, targetEl: null, startValue: null };
+
+  function resetWedge() {
+    wedge.buffer = '';
+    wedge.targetEl = null;
+    wedge.startValue = null;
   }
 
-  init();
+  function isTextField(el) {
+    return !!el && (el.tagName === 'TEXTAREA' ||
+      (el.tagName === 'INPUT' && ['text', 'number', 'tel', 'search', ''].includes(el.type)));
+  }
+
+  function handleScan(code) {
+    if (!session) return;
+    if (scan.active) return onDetected(code);
+    if ($('#invoiceModal').classList.contains('show')) return;
+
+    if (currentPage() === 'products') {
+      productScan(code);
+      ($('#pName').value.trim() ? $('#pBuy') : $('#pName')).focus();
+      return;
+    }
+
+    if (currentPage() !== 'billing') showPage('billing');
+    billingScan(code);
+  }
+
+  // Capture phase, so a scan's Enter never reaches the form or search handlers
+  document.addEventListener('keydown', e => {
+    if (!session) return resetWedge();
+    if (e.ctrlKey || e.metaKey || e.altKey) return resetWedge();
+    if (['Shift', 'Control', 'Alt', 'Meta', 'Tab'].includes(e.key)) return;
+
+    const now = performance.now();
+
+    if (e.key.length === 1) {
+      if (!wedge.buffer || now - wedge.last > WEDGE_MAX_GAP_MS) {
+        resetWedge();
+        const el = document.activeElement;
+        if (isTextField(el)) {
+          wedge.targetEl = el;
+          wedge.startValue = el.value;
+        }
+      }
+      wedge.buffer += e.key;
+      wedge.last = now;
+      return;
+    }
+
+    if (e.key === 'Enter') {
+      const isScan = wedge.buffer.length >= WEDGE_MIN_LEN && now - wedge.last <= WEDGE_MAX_GAP_MS;
+      if (isScan) {
+        e.preventDefault();
+        e.stopPropagation();
+        const code = wedge.buffer;
+        const el = wedge.targetEl;
+        // Remove the scanned digits that landed in the focused field
+        if (el && wedge.startValue !== null) {
+          el.value = wedge.startValue;
+          el.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+        resetWedge();
+        handleScan(code);
+        return;
+      }
+    }
+
+    resetWedge();
+  }, true);
+
+  /* =====================================================================
+     Start
+     ===================================================================== */
+  async function boot() {
+    setBusy(1, 'Connecting…');
+    try {
+      if (!configOk) {
+        showLogin('Add your Supabase Project URL and publishable key in config.js, then reload.');
+        return;
+      }
+      if (!window.supabase || !window.supabase.createClient) {
+        showLogin('Could not load the Supabase library. Check your internet connection and reload.');
+        return;
+      }
+
+      sb = window.supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_PUBLISHABLE_KEY, {
+        auth: {
+          persistSession: true,          // stay signed in across restarts
+          autoRefreshToken: true,
+          detectSessionInUrl: false,
+          storageKey: 'eshop-admin-auth'
+        }
+      });
+
+      // The session is only trusted after the admin check in enterApp().
+      sb.auth.onAuthStateChange((event) => {
+        if (event === 'SIGNED_OUT') {
+          cart = [];
+          cache.products = [];
+          quoteList = [];
+          showLogin();
+        }
+      });
+
+      const { data: { session: existing } } = await sb.auth.getSession();
+      if (existing) await startSession(existing);
+      else showLogin('');
+    } catch (err) {
+      console.error(err);
+      showLogin(friendlyError(err));
+    } finally {
+      setBusy(-1);
+      setInterval(updateClock, 30000);
+      updateClock();
+    }
+  }
+
+  boot();
 })();
 </script>
 </body>
